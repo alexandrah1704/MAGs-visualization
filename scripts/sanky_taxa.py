@@ -1,15 +1,24 @@
 import pandas as pd
 import plotly.graph_objects as go
 import os
+import re
+
+prefix_map = {
+    "d": "domain",
+    "p": "phylum",
+    "c": "class",
+    "o": "order",
+    "f": "family",
+    "g": "genus",
+    "s": "species"
+}
 
 def generate_taxa_sanky(gtdb, output_path):
     tax_split = gtdb["classification"].str.split(";", expand=True)
     tax_split.columns = ["domain", "phylum", "class", "order", "family", "genus", "species"]
 
-    # Clean up missing/empty values
     tax_split = tax_split.replace({"": None, " ": None})
 
-    # --- Build source-target pairs for Sankey ---
     links = []
     for i in range(len(tax_split.columns) - 1):
         pairs = (
@@ -23,15 +32,12 @@ def generate_taxa_sanky(gtdb, output_path):
 
     links_df = pd.concat(links, ignore_index=True)
 
-    # --- Build mapping of node names to indices ---
     nodes = pd.Index(pd.concat([links_df["source"], links_df["target"]]).unique())
     node_map = {name: i for i, name in enumerate(nodes)}
 
-    # Map source/target to indices
     links_df["source_idx"] = links_df["source"].map(node_map)
     links_df["target_idx"] = links_df["target"].map(node_map)
 
-    # --- Assign colors based on taxonomy rank ---
     rank_colors = {
         "domain": "#1f77b4",   # blue
         "phylum": "#ff7f0e",   # orange
@@ -51,12 +57,20 @@ def generate_taxa_sanky(gtdb, output_path):
                 assigned = True
                 break
         if not assigned:
-            node_colors.append("lightgray")  # fallback color
+            node_colors.append("lightgray")
 
-    # --- Make labels nicer (add line breaks to avoid overlap) ---
-    clean_labels = [label.replace(";", ";\n") if label else "" for label in nodes]
+    clean_labels = []
+    for label in nodes:
+        if not label:
+            clean_labels.append("")
+        else:
+            match = re.match(r"^([a-zA-Z]+)_", label)
+            prefix = match.group(1)
+            taxa_level = prefix_map.get(prefix, "taxa")
+            cleaned = re.sub(r"^[a-z]__*", "", label)
+            clean_labels.append(cleaned if cleaned else f"Unknown {taxa_level.capitalize()}")
 
-    # --- Create Sankey diagram ---
+
     fig = go.Figure(data=[go.Sankey(
         node=dict(
             pad=15,
@@ -72,11 +86,10 @@ def generate_taxa_sanky(gtdb, output_path):
         )
     )])
 
-    # --- Layout adjustments ---
     fig.update_layout(
         title_text="Taxonomic Classification Sankey",
         font=dict(size=10),
-        width=1600,   # wider to reduce overlap
+        width=1600,
         height=900
     )
 
