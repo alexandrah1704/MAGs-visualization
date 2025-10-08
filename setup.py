@@ -1,4 +1,9 @@
 from setuptools import setup, find_packages
+import os
+
+version = {}
+with open(os.path.join("scripts", "version.py")) as f:
+    exec(f.read(), version)
 
 ## install main application
 desc = ""
@@ -16,7 +21,7 @@ if os.path.isfile(requirement_path):
 
 setup(
     name="MAGs-visualization",
-    version='0.0.1',
+    version=version["__version__"],
     install_requires=install_requires,
     description=desc,
     long_description=long_description,
