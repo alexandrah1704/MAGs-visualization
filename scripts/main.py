@@ -1,4 +1,3 @@
-from click import option
 import pandas as pd
 import numpy as np
 import argparse
@@ -6,6 +5,7 @@ import time
 import os
 from version import __version__
 from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
+from comp_conta_plot import completeness_contamination_plot
 
 def parse_arguments():
 
@@ -167,6 +167,8 @@ if __name__ == '__main__':
 
     generate_taxa_sanky(dfs['gtdb'], args.output)
     taxa_sanky_rank(dfs['gtdb'], args.output, args.rank)
+
+    completeness_contamination_plot(dfs['checkm'], args.output)
 
     end_time = time.time()
     print(f'Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')

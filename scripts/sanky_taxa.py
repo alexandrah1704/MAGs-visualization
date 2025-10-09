@@ -100,32 +100,23 @@ def generate_taxa_sanky(gtdb, output_path):
 
 def taxa_sanky_rank(gtdb, output_path, rank):
 
-    # --- Split taxonomy into levels ---
     tax_split = gtdb.reset_index()["classification"].str.split(";", expand=True)
     tax_split.columns = ["domain", "phylum", "class", "order", "family", "genus", "species"]
     tax_split = tax_split.replace({"": None, " ": None})
 
-    # --- Choose the taxonomic rank to display ---
-    # Options: "domain", "phylum", "class", "order", "family", "genus", "species"
-    rank = rank
-
-    # Create a simplified dataframe: genome ID → selected rank
     df_sankey = gtdb.reset_index()[["user_genome"]].copy()
     df_sankey[rank] = tax_split[rank]
 
-    # --- Build source-target links ---
     links_df = df_sankey.groupby(["user_genome", rank]).size().reset_index(name="count")
     links_df.columns = ["source", "target", "count"]
 
-    # --- Build node mapping ---
     nodes = pd.Index(pd.concat([links_df["source"], links_df["target"]]).unique())
     node_map = {name: i for i, name in enumerate(nodes)}
     links_df["source_idx"] = links_df["source"].map(node_map)
     links_df["target_idx"] = links_df["target"].map(node_map)
 
-    # --- Assign colors ---
     rank_colors = {
-        "genome": "#7f7f7f",   # gray
+        "genome": "#7f7f7f",  
         "domain": "#1f77b4",
         "phylum": "#ff7f0e",
         "class": "#2ca02c",
@@ -151,7 +142,6 @@ def taxa_sanky_rank(gtdb, output_path, rank):
         else:
             clean_labels.append(label.split('__')[-1])
 
-    # --- Create Sankey diagram ---
     fig = go.Figure(data=[go.Sankey(
         node=dict(
             pad=15,
@@ -167,7 +157,6 @@ def taxa_sanky_rank(gtdb, output_path, rank):
         )
     )])
 
-    # --- Layout ---
     fig.update_layout(
         title_text=f"Genome → {rank.capitalize()} Sankey",
         font=dict(size=10),
