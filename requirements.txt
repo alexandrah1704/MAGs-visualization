@@ -4,3 +4,4 @@ argparse
 plotly
 kaleido
 matplotlib
+seaborn

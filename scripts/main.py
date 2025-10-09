@@ -7,6 +7,7 @@ from version import __version__
 from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from comp_conta_plot import completeness_contamination_plot
 from n50_plot import create_n50_plot
+from mag_heatmap import mag_detection_heatmap
 
 def parse_arguments():
 
@@ -143,6 +144,8 @@ def merged_coverm(coverm_dfs):
 
         coverm_merged = pd.concat(clean_dfs, axis=1)
 
+        print(f"[INFO] gtdb loaded: {coverm_merged.shape} rows x columns")
+
         return coverm_merged
 
 def check_path(output_path):
@@ -168,6 +171,8 @@ if __name__ == '__main__':
     completeness_contamination_plot(dfs['checkm'], args.output)
 
     create_n50_plot(dfs['drep'], args.output)
+
+    mag_detection_heatmap(dfs["coverm"], args.output)
 
     end_time = time.time()
     print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
