@@ -1,3 +1,4 @@
+from json import load
 from networkx import number_of_nodes
 import pandas as pd
 import numpy as np
@@ -6,11 +7,12 @@ import time
 import os
 from version import __version__
 from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
-from comp_conta_plot import completeness_contamination_plot
+from comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot
 from species_level_plot import species_level_plot
 from mag_heatmap import mag_detection_heatmap
 from histogram_plots import create_n50_histogram, number_of_contigs, create_assambly_info_histo
 from rank_dist_plot import rank_distribution_pie
+from amber_plots import binner_plot
 
 def positive_int(value):
     ivalue = int(value)
@@ -94,6 +96,31 @@ def parse_arguments():
         default=5
     )
 
+    parser.add_argument(
+        '--amber',
+        help="Input CAMI amber result file for different plots",
+        dest="amber_file",
+        default=None
+    )
+
+    parser.add_argument(
+        '--gtdb_bac',
+        help="Input GTDB bacteria result file",
+        dest='gtdb_bac_file',
+        default=None
+    )
+
+    parser.add_argument(
+        '--gtdb_ar',
+        help="Input GTDB archaea result file",
+        dest='gtdb_ar_file',
+        default=None
+    )
+
+    parser.add_argument(
+        '--test'
+    )
+
     parser.print_usage = parser.print_help
 
     args = parser.parse_args()
@@ -149,6 +176,21 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep):
     dfs['coverm'] = coverm_dfs
 
     return dfs
+
+def load_single_df(file_path):
+    if file_path.endswith('.csv'):
+        df = pd.read_csv(file_path, index_col=0)
+        print(f"[INFO] {file_path} loaded: {df.shape} rows x columns")
+        return df
+    elif file_path.endswith('.tsv') or file_path.endswith('.tabular'):
+        df = pd.read_csv(file_path, sep='\t', index_col=0)
+        print(f"[INFO] {file_path} loaded: {df.shape} rows x columns")
+        return df
+    else:
+        df = pd.read_csv(file_path, index_col=0)
+        print(f"[INFO] {file_path} loaded: {df.shape} rows x columns")
+        return df
+
     
 def merged_coverm(coverm_dfs):
     clean_dfs = []
@@ -197,6 +239,12 @@ if __name__ == '__main__':
     create_assambly_info_histo(dfs["checkm2"], args.output)
 
     rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
+
+    if args.amber_file is not None:
+        binner_plot(load_single_df(args.amber_file), args.output)
+
+    if args.gtdb_ar_file is not None and args.gtdb_bac_file is not None:
+        rank_completeness_contamination_plot(load_single_df(args.test), load_single_df(args.gtdb_bac_file), load_single_df(args.gtdb_ar_file), args.rank, args.output, args.n)
 
     end_time = time.time()
     print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
