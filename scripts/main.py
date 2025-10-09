@@ -1,3 +1,4 @@
+from networkx import number_of_nodes
 import pandas as pd
 import numpy as np
 import argparse
@@ -8,7 +9,14 @@ from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from comp_conta_plot import completeness_contamination_plot
 from species_level_plot import species_level_plot
 from mag_heatmap import mag_detection_heatmap
-from n50_hist import create_n50_histogram
+from histogram_plots import create_n50_histogram, number_of_contigs, create_assambly_info_histo
+from rank_dist_plot import rank_distribution_pie
+
+def positive_int(value):
+    ivalue = int(value)
+    if ivalue < 5:
+        raise argparse.ArgumentTypeError(f"{value} must be >= 5")
+    return ivalue
 
 def parse_arguments():
 
@@ -75,6 +83,15 @@ def parse_arguments():
         '--rank',
         help="Select which rank should be used for the rank sanky",
         choices=["domain", "phylum", "class", "order", "family", "genus", "species"]
+    )
+
+    parser.add_argument(
+        '-n',
+        '--top_n_counts',
+        help='For the rank distrubionen, only plot the top n. Min: 5 DEFAULT:5',
+        type=positive_int,
+        dest="n",
+        default=5
     )
 
     parser.print_usage = parser.print_help
@@ -176,6 +193,10 @@ if __name__ == '__main__':
     mag_detection_heatmap(dfs["coverm"], args.output)
 
     create_n50_histogram(dfs['checkm2'], args.output)
+    number_of_contigs(dfs["checkm2"], args.output)
+    create_assambly_info_histo(dfs["checkm2"], args.output)
+
+    rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
 
     end_time = time.time()
     print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
