@@ -6,7 +6,7 @@ import os
 from version import __version__
 from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from comp_conta_plot import completeness_contamination_plot
-from n50_plot import create_n50_plot
+from species_level_plot import species_level_plot
 from mag_heatmap import mag_detection_heatmap
 
 def parse_arguments():
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
     completeness_contamination_plot(dfs['checkm'], args.output)
 
-    create_n50_plot(dfs['drep'], args.output)
+    species_level_plot(dfs['drep'], args.output)
 
     mag_detection_heatmap(dfs["coverm"], args.output)
 
