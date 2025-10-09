@@ -8,6 +8,7 @@ from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from comp_conta_plot import completeness_contamination_plot
 from species_level_plot import species_level_plot
 from mag_heatmap import mag_detection_heatmap
+from n50_hist import create_n50_histogram
 
 def parse_arguments():
 
@@ -173,6 +174,8 @@ if __name__ == '__main__':
     species_level_plot(dfs['drep'], args.output)
 
     mag_detection_heatmap(dfs["coverm"], args.output)
+
+    create_n50_histogram(dfs['checkm2'], args.output)
 
     end_time = time.time()
     print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
