@@ -97,3 +97,82 @@ def generate_taxa_sanky(gtdb, output_path):
     
     
     #fig.write_image(os.path.join(output_path,"sankey_plot.png")) --> Possible but there are a lot of libraries needed to make this work so if this is wanted i can add them all as requirements
+
+def taxa_sanky_rank(gtdb, output_path, rank):
+
+    # --- Split taxonomy into levels ---
+    tax_split = gtdb.reset_index()["classification"].str.split(";", expand=True)
+    tax_split.columns = ["domain", "phylum", "class", "order", "family", "genus", "species"]
+    tax_split = tax_split.replace({"": None, " ": None})
+
+    # --- Choose the taxonomic rank to display ---
+    # Options: "domain", "phylum", "class", "order", "family", "genus", "species"
+    rank = rank
+
+    # Create a simplified dataframe: genome ID → selected rank
+    df_sankey = gtdb.reset_index()[["user_genome"]].copy()
+    df_sankey[rank] = tax_split[rank]
+
+    # --- Build source-target links ---
+    links_df = df_sankey.groupby(["user_genome", rank]).size().reset_index(name="count")
+    links_df.columns = ["source", "target", "count"]
+
+    # --- Build node mapping ---
+    nodes = pd.Index(pd.concat([links_df["source"], links_df["target"]]).unique())
+    node_map = {name: i for i, name in enumerate(nodes)}
+    links_df["source_idx"] = links_df["source"].map(node_map)
+    links_df["target_idx"] = links_df["target"].map(node_map)
+
+    # --- Assign colors ---
+    rank_colors = {
+        "genome": "#7f7f7f",   # gray
+        "domain": "#1f77b4",
+        "phylum": "#ff7f0e",
+        "class": "#2ca02c",
+        "order": "#d62728",
+        "family": "#9467bd",
+        "genus": "#8c564b",
+        "species": "#e377c2"
+    }
+
+    node_colors = []
+    for node in nodes:
+        if node in df_sankey["user_genome"].values:
+            node_colors.append(rank_colors["genome"])
+        else:
+            node_colors.append(rank_colors.get(rank, "lightgray"))
+
+    clean_labels = []
+    for label in nodes:
+        if label.split('_')[-1] == 'fasta':
+            clean_labels.append(label)
+        elif label.split('__')[-1] == '':
+            clean_labels.append(f'Unknow {rank.capitalize()}')
+        else:
+            clean_labels.append(label.split('__')[-1])
+
+    # --- Create Sankey diagram ---
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=15,
+            line=dict(color="black", width=0.5),
+            label=clean_labels,
+            color=node_colors
+        ),
+        link=dict(
+            source=links_df["source_idx"],
+            target=links_df["target_idx"],
+            value=links_df["count"]
+        )
+    )])
+
+    # --- Layout ---
+    fig.update_layout(
+        title_text=f"Genome → {rank.capitalize()} Sankey",
+        font=dict(size=10),
+        width=1200,
+        height=800
+    )
+
+    fig.write_html(os.path.join(output_path,"sankey_plot_rank_filtered.html"))

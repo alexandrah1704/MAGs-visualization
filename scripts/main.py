@@ -1,10 +1,11 @@
+from click import option
 import pandas as pd
 import numpy as np
 import argparse
 import time
 import os
 from version import __version__
-from sanky_taxa import generate_taxa_sanky
+from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 
 def parse_arguments():
 
@@ -64,6 +65,13 @@ def parse_arguments():
         help="Path to the output folder to save the plots",
         dest="output",
         default=None
+    )
+
+    parser.add_argument(
+        '-r',
+        '--rank',
+        help="Select which rank should be used for the rank sanky",
+        choices=["domain", "phylum", "class", "order", "family", "genus", "species"]
     )
 
     parser.print_usage = parser.print_help
@@ -158,6 +166,7 @@ if __name__ == '__main__':
     check_path(args.output)
 
     generate_taxa_sanky(dfs['gtdb'], args.output)
+    taxa_sanky_rank(dfs['gtdb'], args.output, args.rank)
 
     end_time = time.time()
     print(f'Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
