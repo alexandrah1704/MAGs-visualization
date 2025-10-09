@@ -6,6 +6,7 @@ import os
 from version import __version__
 from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from comp_conta_plot import completeness_contamination_plot
+from n50_plot import create_n50_plot
 
 def parse_arguments():
 
@@ -90,7 +91,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep):
         dfs['checkm'] = pd.read_csv(checkm, sep="\t", index_col=0)
     else:
         dfs['checkm'] = pd.read_csv(checkm, index_col=0)
-    print(f"checkm loaded: {dfs['checkm'].shape} rows x columns")
+    print(f"[INFO] checkm loaded: {dfs['checkm'].shape} rows x columns")
     
     if checkm2.endswith(".csv"):
         dfs['checkm2'] = pd.read_csv(checkm2, index_col=0)
@@ -98,7 +99,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep):
         dfs['checkm2'] = pd.read_csv(checkm2, sep="\t", index_col=0)
     else:
         dfs['checkm2'] = pd.read_csv(checkm2, index_col=0)
-    print(f"checkm2 loaded: {dfs['checkm2'].shape} rows x columns")
+    print(f"[INFO] checkm2 loaded: {dfs['checkm2'].shape} rows x columns")
     
     if drep.endswith(".csv"):
         dfs['drep'] = pd.read_csv(drep, index_col=0)
@@ -106,15 +107,15 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep):
         dfs['drep'] = pd.read_csv(drep, sep="\t", index_col=0)
     else:
         dfs['drep'] = pd.read_csv(drep, index_col=0)
-    print(f"drep loaded: {dfs['drep'].shape} rows x columns")
+    print(f"[INFO] drep loaded: {dfs['drep'].shape} rows x columns")
     
     if gtdb.endswith(".csv"):
-        dfs['gtdb'] = pd.read_csv(chegtdbckm, index_col=0)
+        dfs['gtdb'] = pd.read_csv(gtdb, index_col=0)
     elif gtdb.endswith(".tsv") or gtdb.endswith(".tabular"):
         dfs['gtdb'] = pd.read_csv(gtdb, sep="\t", index_col=0)
     else:
         dfs['gtdb'] = pd.read_csv(gtdb, index_col=0)
-    print(f"gtdb loaded: {dfs['gtdb'].shape} rows x columns")
+    print(f"[INFO] gtdb loaded: {dfs['gtdb'].shape} rows x columns")
 
     for i, file in enumerate(os.listdir(coverm)):
         path = os.path.join(coverm, file)
@@ -124,7 +125,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep):
             coverm_dfs[f'coverm_{i}'] = pd.read_csv(path, sep="\t", index_col=0)
         else:
             coverm_dfs[f'coverm_{i}'] = pd.read_csv(path, index_col=0)
-        print(f"coverm_{i} loaded: {coverm_dfs[f'coverm_{i}'].shape} rows x columns")
+        print(f"[INFO] coverm_{i} loaded: {coverm_dfs[f'coverm_{i}'].shape} rows x columns")
     
     dfs['coverm'] = coverm_dfs
 
@@ -142,16 +143,14 @@ def merged_coverm(coverm_dfs):
 
         coverm_merged = pd.concat(clean_dfs, axis=1)
 
-        print(coverm_merged.head())
-
         return coverm_merged
 
 def check_path(output_path):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
-        print(f"Created folder: {output_path}")
+        print(f"[INFO] Created folder: {output_path}")
     else:
-        print(f"Folder already exists: {output_path}")
+        print(f"[INFO] Folder already exists: {output_path}")
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -161,8 +160,6 @@ if __name__ == '__main__':
 
     dfs['coverm'] = merged_coverm(dfs['coverm'])
 
-    print(dfs)
-
     check_path(args.output)
 
     generate_taxa_sanky(dfs['gtdb'], args.output)
@@ -170,5 +167,7 @@ if __name__ == '__main__':
 
     completeness_contamination_plot(dfs['checkm'], args.output)
 
+    create_n50_plot(dfs['drep'], args.output)
+
     end_time = time.time()
-    print(f'Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
+    print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
