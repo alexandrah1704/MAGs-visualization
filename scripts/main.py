@@ -10,6 +10,7 @@ from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot
 from species_level_plot import species_level_plot
 from mag_heatmap import mag_detection_heatmap
+from heatmap import mag_heatmap
 from histogram_plots import create_n50_histogram, number_of_contigs, create_assambly_info_histo
 from rank_dist_plot import rank_distribution_pie
 from amber_plots import binner_plot
@@ -233,6 +234,8 @@ if __name__ == '__main__':
     species_level_plot(dfs['drep'], args.output)
 
     mag_detection_heatmap(dfs["coverm"], args.output)
+
+    mag_heatmap(dfs["coverm"], dfs["gtdb"], args.output)
 
     create_n50_histogram(dfs['checkm2'], args.output)
     number_of_contigs(dfs["checkm2"], args.output)
