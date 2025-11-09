@@ -13,11 +13,31 @@ prefix_map = {
     "s": "species"
 }
 
-def generate_taxa_sanky(gtdb, output_path):
-    tax_split = gtdb["classification"].str.split(";", expand=True)
-    tax_split.columns = ["domain", "phylum", "class", "order", "family", "genus", "species"]
+def normalize_rank(rank: str) -> str:
+    """Accepts short codes (d/p/c/o/f/g/s) or full names; returns full rank name."""
+    if not isinstance(rank, str):
+        raise ValueError("rank must be a string")
+    r = rank.strip().lower()
+    # map short code -> full
+    short2full = {
+        "d": "domain", "p": "phylum", "c": "class",
+        "o": "order",  "f": "family", "g": "genus", "s": "species"
+    }
+    return short2full.get(r, r)  # if already 'phylum', returns 'phylum'
 
+
+def generate_taxa_sanky(gtdb, output_path, rank):
+    rank = normalize_rank(rank)
+
+    tax_split = gtdb.reset_index()["classification"].str.split(";", expand=True)
+    tax_split.columns = ["domain", "phylum", "class", "order", "family", "genus", "species"]
     tax_split = tax_split.replace({"": None, " ": None})
+
+    if rank not in tax_split.columns:
+        raise ValueError(f"Requested rank '{rank}' is not in parsed columns {list(tax_split.columns)}")
+
+    df_sankey = gtdb.reset_index()[["user_genome"]].copy()
+    df_sankey[rank] = tax_split[rank]
 
     links = []
     for i in range(len(tax_split.columns) - 1):
