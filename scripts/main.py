@@ -14,7 +14,9 @@ from heatmap import mag_heatmap
 from histogram_plots import create_n50_histogram, number_of_contigs, create_assambly_info_histo
 from rank_dist_plot import rank_distribution_pie
 from amber_plots import binner_plot
-# from swarm_box_plot import box_swarm_plot
+from assembly_quality import assembly_quality_dashboard
+# from bakta_checkm2_plot import bakta_annotation_dashboard
+
 
 def positive_int(value):
     ivalue = int(value)
@@ -273,9 +275,12 @@ if __name__ == '__main__':
     number_of_contigs(dfs["checkm2"], args.output)
     create_assambly_info_histo(dfs["checkm2"], args.output)
 
-    # box_swarm_plot(dfs, args.output)
+    assembly_quality_dashboard(dfs, args.output)
 
     rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
+
+    # bakta_annotation_dashboard(dfs, args.output)
+
 
     if args.amber_file is not None:
         binner_plot(load_single_df(args.amber_file), args.output)
