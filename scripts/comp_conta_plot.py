@@ -1,12 +1,11 @@
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib.ticker as mtick
-import matplotlib.gridspec as gridspec
-import math
+import os, re
 import numpy as np
-import os                               # Dateipfade
 import pandas as pd                     # Tabellen
 import seaborn as sns                   # High-level Plots
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+import matplotlib.gridspec as gridspec
+
 
 prefix_map = {
     'domain': 'd',
@@ -59,8 +58,8 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
     ax_scatter.set_xlim(xmin, xmax)
     ax_scatter.set_ylim(0, ymax)
     ax_scatter.grid(True, linestyle=":", linewidth=0.7, alpha=0.7)
-    ax_scatter.set_xlabel("Completeness %")
-    ax_scatter.set_ylabel("Contamination %")
+    ax_scatter.set_xlabel("Completeness (%)")
+    ax_scatter.set_ylabel("Contamination (%)")
     ax_scatter.axvline(90, linestyle="--", linewidth=1.2, color=col_hq, alpha=0.9)
     ax_scatter.axhline(5,  linestyle="--", linewidth=1.0, color="#bbbbbb", alpha=0.9)
     ax_scatter.axvline(70, linestyle="--", linewidth=1.2, color=col_mq, alpha=0.9)
@@ -98,7 +97,7 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
     ax_histx.bar(bin_centers_x, p_hq,  width=1.0, bottom=p_low+p_mq, color=col_hq, edgecolor="white", linewidth=0.5)
 
     ax_histx.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
-    ax_histx.set_ylabel("Percentage of MAGs")
+    ax_histx.set_ylabel("% of MAGs")
     ax_histx.set_ylim(0, (p_low+p_mq+p_hq).max() * 1.15)
     ax_histx.grid(True, linestyle=":", linewidth=0.7, alpha=0.7)
 
@@ -130,7 +129,7 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
     ax_histy.barh(bin_centers_y, p_hq_y,  height=0.1, left=p_low_y+p_mq_y, color=col_hq, edgecolor="white", linewidth=0.5)
 
     ax_histy.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
-    ax_histy.set_xlabel("Percentage of MAGs")
+    ax_histy.set_xlabel("% of MAGs")
     ax_histy.set_xlim(0, (p_low_y+p_mq_y+p_hq_y).max() * 1.15)
     ax_histy.grid(True, linestyle=":", linewidth=0.7, alpha=0.7)
 
@@ -141,7 +140,6 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
         ax_histy.spines[side].set_visible(False)
 
     ax_histy.tick_params(axis="both", length=4, labelleft=True, labelbottom=True)
-
     ax_histy.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
 
     from matplotlib.patches import Patch
@@ -154,23 +152,13 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
 
     out = os.path.join(output_path, f"comp_conta_marginals_{tag}.png")
     fig.savefig(out, dpi=220)
-    # plt.close(fig)
-    # print(f"[INFO] Saved: {out}")
 
 
 def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_path, n):
     """
-    Create two plots (for CheckM and CheckM2):
-    Completeness vs Contamination, colored by GTDB <rank> (e.g., phylum),
-    incl. stacked marginal histograms. Robust join via normalized IDs.
+    Create two plots for CheckM and CheckM2:
+    Completeness vs Contamination, colored by GTDB rank,
     """
-    import os, re
-    import numpy as np
-    import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
-    import matplotlib.ticker as mtick
 
     def normalize_id(s: str) -> str:
         s = str(s).strip()
@@ -184,18 +172,7 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
 
     def _plot_rank(df_checkm, gtdb_df, rank, output_path, n, tag):
         rank_col = rank.capitalize()
-
-        # --- CheckM: normalize key for join ---
         
-        # --- DEBUG: check normalized sets BEFORE join ---
-        chk_keys = pd.Index(df_checkm.index.map(normalize_id), name="key")
-        gtd_keys = pd.Index(gtdb_df.index.map(normalize_id),   name="key")
-
-        print(f"[DBG][{tag}] #checkm bins: {len(chk_keys)} | #gtdb ids: {len(gtd_keys)}")
-        inter = set(chk_keys).intersection(set(gtd_keys))
-        print(f"[DBG][{tag}] intersection size: {len(inter)}")
-
-    
         # --- Join via canonical key ---
         df_checkm = df_checkm.copy()
         df_checkm["__key__"] = df_checkm.index.map(normalize_id)
@@ -205,7 +182,7 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
             gtdb_df.set_index("user_genome", inplace=True)
         gtdb_df["__key__"] = gtdb_df.index.map(normalize_id)
 
-        # rank extrahieren (z. B. phylum)
+        # extract rank
         rank_col = rank.capitalize()
         gtdb_df[rank_col] = gtdb_df["classification"].apply(lambda s: extract_rank(s, rank))
 
@@ -213,28 +190,35 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
         right = gtdb_df.set_index("__key__", drop=True)[[rank_col]]
         merged = left.join(right, how="left")
 
-        # --- Quick diagnostics ---
-        have_rank = merged[rank_col].notna().sum()
-        total_bins = len(merged)
-        print(f"[DBG][{tag}] matched ranks: {have_rank}/{total_bins} ({have_rank/total_bins*100:.1f}%)")
-
         # --- Plot data frame ---
         x = pd.to_numeric(merged["Completeness"],  errors="coerce")
         y = pd.to_numeric(merged["Contamination"], errors="coerce")
         df = pd.DataFrame({"x": x, "y": y, rank_col: merged[rank_col]}).dropna(subset=["x", "y"])
 
-        # --- Top-n ranks; others -> Other; NaN -> Unknown ---
-        counts = df[rank_col].value_counts(dropna=False)
-        top_ranks = counts.dropna().nlargest(n).index.tolist()
-        other_count = counts.dropna()[~counts.dropna().index.isin(top_ranks)].sum()
-
-        def map_rank(v):
+        # --- Top-n ranks ---
+        def _norm_name(v: object) -> str:
             if pd.isna(v):
                 return f"Unknown {rank_col}"
-            return f"{v} ({counts[v]})" if v in top_ranks else f"Other ({other_count})"
+            name = str(v).strip()
+            if name == "":
+                return f"Unnamed {rank_col}"
+            return name
+
+        df["__rank_display__"] = df[rank_col].apply(_norm_name)
+        counts = df["__rank_display__"].value_counts()
+
+        # Top-n
+        top_ranks = counts.nlargest(n).index.tolist()
+        other_count = counts[~counts.index.isin(top_ranks)].sum()
+
+        def map_rank_display(name: str) -> str:
+            if name in top_ranks:
+                return f"{name} ({counts[name]})"
+            else:
+                return f"Other ({other_count})"
 
         label_col = f"{rank_col} (n)"
-        df[label_col] = df[rank_col].map(map_rank)
+        df[label_col] = df["__rank_display__"].map(map_rank_display)
 
         # --- Layout (2x2) ---
         fig = plt.figure(figsize=(10, 8), constrained_layout=True)
@@ -319,8 +303,6 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
         # --- Save ---
         out = os.path.join(output_path, f"comp_conta_by_rank_marginals_{tag}.png")
         fig.savefig(out, dpi=220)
-        plt.close(fig)
-        print(f"[INFO] Saved: {out}")
 
     # Run for both tools
     _plot_rank(checkm,  gtdb, rank, output_path, n, tag="CheckM")

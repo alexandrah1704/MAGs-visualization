@@ -53,7 +53,7 @@ def clean_sample_from_coverm_col(col: str) -> str:
 
 
 def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str,
-    present_threshold: float = 0.0, top_bar_spacing: float = 0.95,
+    present_threshold: float = 0.0, top_bar_spacing: float = 1.0,
     top_bar_width: float = 0.90, rank: str = "phylum"):
 
     """
@@ -227,14 +227,13 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # ---- Dynamic grid/ticks setup ----
     if np.isfinite(top_vals).any():
         ymax = float(np.nanmax(top_vals.values))
-        yceil = int(np.ceil(ymax))  # e.g. log10(120) = 2 → yceil = 2
+        yceil = int(np.ceil(ymax))
         ax_top.set_ylim(0, max(1, yceil))
         
-        # Only show tick 0, 1, 2,... but hide topmost gridline if <=1
         yticks = np.arange(0, yceil + 1, 1)
         ax_top.set_yticks(yticks)
         
-        # Draw horizontal reference line at 0 only, optionally also at 2+
+        # Draw horizontal reference line at 0 only
         ax_top.axhline(0, color="#888888", linewidth=0.8)
         if yceil >= 2:
             ax_top.axhline(2, color="#cccccc", linewidth=0.5, linestyle="--")
@@ -247,7 +246,6 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     ax_top.spines["left"].set_visible(False)
     ax_top.grid(axis='y', color='#888888', linewidth=0.5, zorder=10)
     ax_top.set_axisbelow(False)
-
 
     # ---- right bar ----
     ypos = np.arange(n_rows)
