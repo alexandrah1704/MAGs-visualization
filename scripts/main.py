@@ -15,7 +15,7 @@ from histogram_plots import create_n50_histogram, number_of_contigs, create_assa
 from rank_dist_plot import rank_distribution_pie
 from amber_plots import binner_plot
 from assembly_quality import assembly_quality_dashboard
-# from bakta_checkm2_plot import bakta_annotation_dashboard
+from bakta_checkm2_plot import bakta_annotation_dashboard
 
 
 def positive_int(value):
@@ -279,7 +279,7 @@ if __name__ == '__main__':
 
     rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
 
-    # bakta_annotation_dashboard(dfs, args.output)
+    bakta_annotation_dashboard(dfs, args.output)
 
 
     if args.amber_file is not None:
