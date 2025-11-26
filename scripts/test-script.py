@@ -18,6 +18,7 @@ from main import (
     taxa_sanky_rank,
     assembly_quality_dashboard,
     bakta_annotation_dashboard,
+    cluster_assembly_dashboard,
 )
 
 INPUT_DIR = "test-data"
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     number_of_contigs(dfs["checkm2"], OUTPUT_DIR)
     create_assambly_info_histo(dfs["checkm2"], OUTPUT_DIR)
     assembly_quality_dashboard(dfs, OUTPUT_DIR)
+    cluster_assembly_dashboard(dfs, OUTPUT_DIR)
     bakta_annotation_dashboard(dfs, OUTPUT_DIR)
     rank_distribution_pie(dfs["gtdb"], OUTPUT_DIR, RANK, TOP_N)
     generate_taxa_sanky(dfs['gtdb'], OUTPUT_DIR, RANK)

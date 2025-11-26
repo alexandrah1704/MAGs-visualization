@@ -1,21 +1,20 @@
+# Bakta functional annotation vs completeness (checkm2)
+# x = completeness bins, y = bakta features
+# Coloring options: quality, tax, metadata
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 import hashlib
+from id_normalizer import normalize_genome_id, normalize_genome_series
+
 
 def normalize_id_series(s: pd.Series) -> pd.Series:
-    """Normalize IDs"""
-    s = s.astype(str)
-    s = s.str.replace(r".*[\\/]", "", regex=True)
-    s = s.str.replace(r"_Count$", "", regex=True)
-    s = s.str.replace(r"_fasta$", "", regex=True)
-    s = s.str.replace(r"(?i)\.(?:fa|fna|fasta|faa|gz|gbff)$", "", regex=True)
-    s = s.str.replace(r"\s+", "_", regex=True)
-    s = s.str.replace(r"[^\w\-]+", "_", regex=True)
-    s = s.str.replace(r"_+", "_", regex=True).str.strip("_").str.lower()
-    return s
+    return normalize_genome_series(s)
+
+def normalize_id_universal(s: str) -> str:
+    return normalize_genome_id(s)
 
 def _first_present_col(df: pd.DataFrame, candidates) -> str | None:
     lowmap = {c.lower(): c for c in df.columns}
@@ -30,7 +29,7 @@ def _coerce_bakta_to_wide(bakta_raw: pd.DataFrame) -> pd.DataFrame:
     """
     Brings Bakta into wide form:
     - rows = genomes
-    - columns = features
+    - columns = bakta features
     """
     df = bakta_raw.copy()
 
@@ -65,10 +64,7 @@ def _coerce_bakta_to_wide(bakta_raw: pd.DataFrame) -> pd.DataFrame:
     return wide
 
 def stable_jitter(keys: pd.Series, scale=0.06) -> np.ndarray:
-    """
-    Deterministic jitter in [-scale, scale] per key (string).
-    Same key -> same jitter across runs and independent of plot order.
-    """
+    """ Deterministic jitter """
     out = np.empty(len(keys), dtype=float)
     for i, k in enumerate(keys.astype(str)):
         h = hashlib.blake2b(k.encode("utf-8"), digest_size=4).digest()
@@ -77,10 +73,14 @@ def stable_jitter(keys: pd.Series, scale=0.06) -> np.ndarray:
     return out
 
 
-def bakta_annotation_dashboard(dfs: dict, output_dir: str, metrics=None):
+def bakta_annotation_plot(dfs: dict, output_dir: str, metrics=None,
+                               color_by: str | None = None,
+                               tax_rank: str = "phylum",
+                               meta_col: str | None = None,
+                               fig_size = (5,5), fmt: str ="png",
+                               plot_ratio=False,):
     """
-    Fuctional annotation Bakta vs completeness (CheckM2)
-    x = completeness in bins, y = Bakta feature
+    Plot Bakta features vs completeness (checkm2)
     """
 
     os.makedirs(output_dir, exist_ok=True)
@@ -93,15 +93,15 @@ def bakta_annotation_dashboard(dfs: dict, output_dir: str, metrics=None):
     # --- CheckM2 ---
     checkm2 = dfs["checkm2"].copy()
     compl_col = _first_present_col(checkm2, ["Completeness", "completeness", "CheckM2 completeness"])
+    cont_col = _first_present_col(checkm2, ["Contamination", "contamination", "CheckM2 contamination"])
 
     # build normalized join keys
     bakta = bakta.reset_index().rename(columns={"Genome": "__id__"})
-    id_col = _first_present_col(checkm2, ["Genome", "user_genome", "Bin Id", "Name", "genome"])
-    checkm2_ids = normalize_id_series(checkm2[id_col]) if id_col else normalize_id_series(checkm2.index.to_series())
-    checkm2 = checkm2.assign(__id__=checkm2_ids)
+    bakta["__id__"] = bakta["__id__"].apply(normalize_id_universal)
+    
+    checkm2["__id__"] = checkm2.index.to_series().apply(normalize_id_universal)
 
     # --- Choose features ---
-    # Keys = display names, values = column names in bakta
     if metrics is None:
         metrics = {
             "CDS": "cdss",
@@ -111,95 +111,359 @@ def bakta_annotation_dashboard(dfs: dict, output_dir: str, metrics=None):
         }
         metrics = {disp: col for disp, col in metrics.items() if col in bakta.columns}
 
-    # ---- Merge Bakta features with completeness ----
     metric_cols = list(metrics.values())
-    bakta_sub = bakta[["__id__"] + metric_cols]
-    checkm2_sub = checkm2[["__id__", compl_col]]
+
+    metric_cols_for_merge = metric_cols.copy()
+    if "cdss" in bakta.columns and "cdss" not in metric_cols_for_merge:
+        metric_cols_for_merge.append("cdss")
+
+    bakta_sub = bakta[["__id__"] + metric_cols_for_merge]
+
+    # ---- Merge Bakta features with completeness ----
+    cols_keep = ["__id__", compl_col]
+    if cont_col is not None:
+        cols_keep.append(cont_col)
+    checkm2_sub = checkm2[cols_keep]
 
     merged = bakta_sub.merge(checkm2_sub, on="__id__", how="inner")
+    if merged.empty:
+        print("[WARN] No overlap between Bakta and CheckM2")
+        return
+    
+    # ---- calculate Ratios: Metric / cdss ----
+    ratio_cols = {}
+
+    if "cdss" in merged.columns:
+        for disp_name, col_name in metrics.items():
+            # CDS not dividing by themselves
+            if col_name == "cdss":
+                continue
+            if col_name in merged.columns:
+                ratio_col_name = f"{col_name}_per_cds"
+                merged[ratio_col_name] = (
+                    merged[col_name] / merged["cdss"].replace(0, np.nan)
+                )
+                ratio_cols[disp_name] = ratio_col_name
+    else:
+        print("[WARN] No 'cdss' column in merged Bakta+CheckM2 table -> no ratios will be plotted.")
+        print("Available columns in merged:", list(merged.columns))
 
     # ---- Bin completeness ----
     bins = [-np.inf, 50, 70, 90, np.inf]
     labels = ["<50%", "50-70%", "70-90%", "≥90%"]
-    merged["Completeness"] = pd.cut(
-        pd.to_numeric(merged[compl_col], errors="coerce"),
-        bins=bins, labels=labels,
-        right=True, include_lowest=True
+    merged["Completeness_bin"] = pd.Categorical(
+        pd.cut(
+            pd.to_numeric(merged[compl_col], errors="coerce"),
+            bins=bins,
+            labels=labels,
+        ),
+        categories=labels,
+        ordered=True,
     )
-    merged["Completeness"] = pd.Categorical(merged["Completeness"], categories=labels, ordered=True)
-    order = labels
+
+    # ---- Color logic ----
+    color_by_effective = color_by
+    quality_col = None
+    tax_col = None
+
+    # a) color_by: quality - hq, mq, lq
+    if color_by_effective == "quality" and cont_col is not None:
+        c = pd.to_numeric(merged[compl_col], errors="coerce")
+        k = pd.to_numeric(merged[cont_col], errors="coerce")
+
+        q = np.full(len(merged), "Low-quality", dtype=object)
+        q[(c >= 70)] = "Medium-quality"
+        q[(c >= 90) & (k <= 5)] = "High-quality"
+        q[pd.isna(c) | pd.isna(k)] = "Unknown"
+
+        merged["Quality"] = pd.Categorical(
+            q,
+            categories=["Low-quality", "Medium-quality", "High-quality", "Unknown"],
+            ordered=True,
+        )
+        quality_col = "Quality"
+
+    # b) color_by_ tax
+    elif color_by_effective == "tax":
+        if "gtdb" not in dfs:
+            print("[WARN] No GTDB table found → back to completeness.")
+            color_by_effective = None
+        else:
+            from heatmap import extract_rank
+            gtdb = dfs["gtdb"].copy()
+            gtdb = gtdb.rename_axis("orig_id").reset_index()
+            gtdb["__id__"] = gtdb["orig_id"].astype(str).apply(normalize_id_universal)
+
+            if "classification" in gtdb.columns:
+                gtdb[tax_rank] = gtdb["classification"].apply(
+                    lambda tx: extract_rank(tx, tax_rank)
+                )
+                tax_col = tax_rank
+            else:
+                tax_col = None
+                for c in [tax_rank, tax_rank.capitalize(), tax_rank.lower()]:
+                    if c in gtdb.columns:
+                        tax_col = c
+                        break
+
+            if tax_col is None:
+                print(f"[WARN] Could not find taxonomy for rank '{tax_rank}'.")
+                color_by_effective = None
+            else:
+                merged = merged.merge(
+                    gtdb[["__id__", tax_col]],
+                    on="__id__",
+                    how="left"
+                )
+                merged[tax_col] = merged[tax_col].fillna("Unknown")
+
+                top_n = 10
+                value_counts = merged[tax_col].value_counts()
+                top_taxa = value_counts.head(top_n).index.tolist()
+                merged[tax_col] = merged[tax_col].apply(
+                    lambda x: x if x in top_taxa else "Others"
+                )
+
+    # c) color_by: metadata
+    elif color_by_effective == "meta":
+        if "metadata" not in dfs:
+            print("[WARN] No metadata table found → falling back to completeness.")
+            color_by_effective = None
+        else:
+            metadata = dfs["metadata"].copy()
+            
+            if "user_genome" in metadata.columns and metadata.index.name != "user_genome":
+                metadata.set_index("user_genome", inplace=True)
+            
+            metadata = metadata.rename_axis("orig_id").reset_index()
+            metadata["__id__"] = metadata["orig_id"].astype(str).apply(normalize_id_universal)
+            
+            if meta_col not in metadata.columns:
+                print(f"[WARN] Column '{meta_col}' not found in metadata → available: {metadata.columns.tolist()}")
+                color_by_effective = None
+            else:
+                merged = merged.merge(
+                    metadata[["__id__", meta_col]],
+                    on="__id__",
+                    how="left"
+                )
+                
+                meta_num = pd.to_numeric(merged[meta_col], errors="coerce")
+                frac_numeric = meta_num.notna().mean()
+                
+                if frac_numeric >= 0.8:
+                    # Numeric (temperature)
+                    bin_width = 5.0
+                    vmin = np.floor(meta_num.min() / bin_width) * bin_width
+                    vmax = np.ceil(meta_num.max() / bin_width) * bin_width
+                    if vmin == vmax:
+                        vmax = vmin + bin_width
+                    
+                    bins_meta = np.arange(vmin, vmax + bin_width, bin_width)
+                    labels_meta = [
+                        f"{int(left)}–{int(right)}"
+                        for left, right in zip(bins_meta[:-1], bins_meta[1:])
+                    ]
+                    
+                    merged[meta_col] = pd.cut(
+                        meta_num,
+                        bins=bins_meta,
+                        labels=labels_meta,
+                        include_lowest=True
+                    ).astype("object").fillna(f"Unknown {meta_col}") # type: ignore
+                    
+                else:
+                    # Categorical (weather)
+                    merged[meta_col] = merged[meta_col].astype("string").fillna(f"Unknown {meta_col}")
+                
+                top_n_meta = 10
+                counts = merged[meta_col].value_counts()
+                if len(counts) > top_n_meta:
+                    top_cats = counts.nlargest(top_n_meta).index.tolist()
+                    merged[meta_col] = merged[meta_col].apply(
+                        lambda x: x if x in top_cats else "Others"
+                    )
 
     # ---- long format for plotting ----
     display_map = {v: k for k, v in metrics.items()}
+    
+    id_vars = ["__id__", "Completeness_bin"]
+    if quality_col:
+        id_vars.append(quality_col)
+    if tax_col:
+        id_vars.append(tax_col)
+    if meta_col and meta_col in merged.columns:
+        id_vars.append(meta_col)
+    
     long = merged.melt(
-        id_vars=["__id__", "Completeness"],
+        id_vars=id_vars,
         value_vars=metric_cols,
         var_name="Metric", value_name="Value"
-    ).dropna(subset=["Value", "Completeness"])
+    ).dropna(subset=["Value", "Completeness_bin"])
+    
     long["Metric"] = long["Metric"].map(lambda col: display_map.get(col, col))
-
     metrics_display = [dsp for dsp in metrics.keys() if dsp in long["Metric"].unique()]
 
-    # ---- Plotting ----
-    n_metrics = len(metrics_display)
-    fig, axes = plt.subplots(1, n_metrics, figsize=(5*n_metrics, 5), sharey=False)
-    if n_metrics == 1:
-        axes = [axes]
-
-    palette = sns.color_palette("Set2", n_colors=len(order))
-    color_map = {lab: palette[i] for i, lab in enumerate(order)}
-
-    for ax, metric in zip(axes, metrics_display):
+    # ---- Plot each metric separately ----
+    for metric in metrics_display:
         data = long[long["Metric"] == metric].copy()
         if data.empty:
-            ax.set_axis_off()
+            print(f"[WARN] No data for metric {metric}")
             continue
 
+        # color setup - depending on color_by
+        if color_by_effective == "quality" and quality_col:
+            label_series = data[quality_col].astype(str)
+            categories_color = [
+                lab
+                for lab in ["Low-quality", "Medium-quality", "High-quality", "Unknown"]
+                if lab in label_series.unique()
+            ]
+            pal = sns.color_palette("Set2", len(categories_color))
+            legend_title = "Quality"
+
+        elif color_by_effective == "tax" and tax_col:
+            label_series = data[tax_col].astype(str)
+            categories_color = sorted(label_series.unique())
+            pal = sns.color_palette("tab20", len(categories_color))
+            legend_title = tax_rank
+
+        elif color_by_effective == "meta" and meta_col:
+            label_series = data[meta_col].astype(str)
+            categories_color = sorted(label_series.unique())
+            pal = sns.color_palette("tab20", len(categories_color))
+            legend_title = meta_col
+
+        else:
+            label_series = data["Completeness_bin"].astype(str)
+            categories_color = labels
+            pal = sns.color_palette("Set2", len(categories_color))
+            legend_title = None
+
+        color_map = {lab: pal[i] for i, lab in enumerate(categories_color)}
+        point_colors = [color_map.get(v, "#555555") for v in label_series]
+
+        if plot_ratio:
+            fig, (ax_top, ax_bottom) = plt.subplots(
+                2, 1,
+                figsize=(fig_size[0], fig_size[1] * 1.4),
+                sharex=True,
+                gridspec_kw={'height_ratios': [3, 1]}
+            )
+        else:
+            fig, ax_top = plt.subplots(figsize=fig_size)
+            ax_bottom = None
+
+        #  Top Boxplot
         sns.boxplot(
-            data=data, x="Completeness", y="Value",
-            hue="Completeness", dodge=False, order=order,
-            palette=palette, ax=ax, showfliers=False, legend=False,
-            zorder=1
+            data=data,
+            x="Completeness_bin",
+            y="Value",
+            order=labels,
+            color="#dddddd",
+            ax=ax_top,
+            showfliers=False,
+            dodge=False,
+            zorder=1,
         )
-
-        for patch in ax.artists:
-            fc = patch.get_facecolor()
-            patch.set_facecolor((fc[0], fc[1], fc[2], 0.6))
-            patch.set_zorder(1)
-        for line in ax.lines:
-            line.set_zorder(1)
-
-        # ---- Scatter Layer ----
-        cats = pd.Categorical(data["Completeness"], categories=order, ordered=True)
-        xpos = cats.codes.astype(float)
-        keys  = data["__id__"].astype(str) + "|" + data["Completeness"].astype(str)
+        
+        # Jitter positions
+        cats_x = pd.Categorical(data["Completeness_bin"], categories=labels, ordered=True)
+        xpos = cats_x.codes.astype(float)
+        keys = data["__id__"].astype(str) + "|" + data["Completeness_bin"].astype(str)
         x_jit = xpos + stable_jitter(keys, scale=0.06)
-        point_colors = [color_map[str(cat)] for cat in cats.astype(str)]
 
-        ax.scatter(
-            x_jit, data["Value"].to_numpy(),
-            s=22, facecolors=point_colors, edgecolors="black",
-            linewidths=0.5, alpha=0.9, zorder=3
+        # Scatter points on top of boxplot
+        ax_top.scatter(
+            x_jit,
+            data["Value"],
+            s=22,
+            facecolors=point_colors,
+            edgecolors="black",
+            linewidths=0.5,
+            alpha=0.9,
+            zorder=3,
         )
 
-        # ---- Styling ----
-        ax.set_xlabel("Completeness", fontsize=11)
-        ax.set_ylabel(metric, fontsize=11)
-        ax.set_title(metric, fontsize=12, fontweight='bold')
-        ax.grid(axis='y', alpha=0.3, linestyle='--')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.tick_params(axis='x', rotation=0)
-        ax.set_xticks(range(len(order)))
-        ax.set_xticklabels(order)
-
-        # Log-Scale
+        # Log scale
         if metric in ["CDS", "Hypotheticals"]:
-            ax.set_yscale("log")
+            ax_top.set_yscale("log")
 
-    plt.tight_layout()
-    out_path = os.path.join(output_dir, "bakta_annotation_dashboard.png")
-    plt.savefig(out_path, dpi=300, bbox_inches='tight')
+        ax_top.set_ylabel(metric)
+        ax_top.set_title(metric, fontweight="bold")
+        ax_top.grid(axis="y", linestyle="--", alpha=0.3)
 
-    debug_csv = os.path.join(output_dir, "bakta_annotation_long.csv")
-    long.to_csv(debug_csv, index=False)
+        # Legend
+        if legend_title:
+            handles = []
+            for lab in categories_color:
+                pt = plt.Line2D(
+                    [], [], marker="o", linestyle="", color=color_map[lab],
+                    label=lab, markersize=6
+                )
+                handles.append(pt)
+
+            ax_top.legend(
+                handles,
+                categories_color,
+                title=legend_title,
+                loc="upper center",
+                bbox_to_anchor=(0.5, -0.15),
+                frameon=False,
+                ncol=min(3, len(categories_color)),
+                fontsize=7,
+                title_fontsize=8,
+                markerscale=0.7,
+            )
+        
+        # Bottom plot
+        if plot_ratio and ax_bottom is not None:
+            ratio_col = ratio_cols.get(metric, None)
+
+            if plot_ratio and ratio_col and ratio_col in merged.columns:
+                ratio_stats = (
+                    merged
+                    .groupby("Completeness_bin")[ratio_col]
+                    .median()
+                    .reindex(labels)
+                )
+
+                ax_bottom.plot(
+                    range(len(labels)),
+                    ratio_stats.values,
+                    marker="o",
+                    linestyle="-",
+                    linewidth=1.5,
+                )
+
+                ax_bottom.set_ylabel(f"{metric} / CDS")
+                rmax = np.nanmax(ratio_stats.values)
+                if np.isfinite(rmax):
+                    ax_bottom.set_ylim(0, rmax * 1.2)
+                ax_bottom.grid(axis="y", linestyle="--", alpha=0.3)
+            else:
+                ax_bottom.axis("off")
+
+        if plot_ratio and ax_bottom is not None:
+            ax_x = ax_bottom
+        else:
+            ax_x = ax_top
+            
+        ax_x.set_xlabel("Completeness")
+        ax_x.set_xticks(range(len(labels)))
+        ax_x.set_xticklabels(labels)
+
+
+        plt.tight_layout()
+        safe_metric = metric.replace(" ", "_").replace("/", "_")
+        if color_by == "meta":
+            out = os.path.join(output_dir, f"bakta_{safe_metric}_{color_by}_{meta_col}.{fmt}")
+        elif color_by == "tax":
+            out = os.path.join(output_dir, f"bakta_{safe_metric}_{color_by}_{tax_rank}.{fmt}")
+        elif color_by == "quality":
+            out = os.path.join(output_dir, f"bakta_{safe_metric}_{color_by}.{fmt}")
+        else:
+            out = os.path.join(output_dir, f"bakta_{safe_metric}.{fmt}")
+        plt.savefig(out, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print(f"[OK] Saved: {out}")
