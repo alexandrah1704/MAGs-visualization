@@ -16,6 +16,7 @@ from rank_dist_plot import rank_distribution_pie
 from amber_plots import binner_plot
 from assembly_quality import assembly_quality_plot
 from bakta_checkm2_plot import bakta_annotation_plot
+from drep_taxa_plot import drep_taxa_plot
 
 # ---- Argument parsing ---- #
 def positive_int(value):
@@ -541,6 +542,18 @@ if __name__ == '__main__':
 
     # drep and heatmap
     species_level_plot(dfs['drep'], args.output)
+    
+    # ---- dRep_taxa_plot ----
+    drep_taxa_plot(
+        dfs["drep"],
+        dfs["gtdb"],
+        args.output,
+        rank=tax_rank,                 
+        top_n=args.n,
+        fig_size=comp_fig_size if comp_fig_size is not None else (10, 6),
+        fmt=args.format,
+    )
+
     mag_detection_heatmap(dfs["coverm"], args.output)
 
     # ---- Heatmap with bars ----
