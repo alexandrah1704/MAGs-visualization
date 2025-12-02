@@ -16,7 +16,8 @@ from rank_dist_plot import rank_distribution_pie
 from amber_plots import binner_plot
 from assembly_quality import assembly_quality_plot
 from bakta_checkm2_plot import bakta_annotation_plot
-from drep_taxa_plot import drep_taxa_plot
+# from drep_taxa_plot import drep_taxa_plot
+from drep_cluster_plot import drep_cluster_plot
 
 # ---- Argument parsing ---- #
 def positive_int(value):
@@ -127,6 +128,13 @@ def parse_arguments():
         default=None
     )
 
+    parser.add_argument(
+        '--metadata_heatmap_new',
+        help="Path to METADATA_HEATMAP_NEW",
+        dest="metadata_heatmap_new_file",
+        default=None,
+    )
+
     # Output
     parser.add_argument(
         '-o',
@@ -204,6 +212,12 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        '--meta_cols', 
+        nargs='+', 
+        help='List of metadata columns'
+        )
+
+    parser.add_argument(
         '--meta_bin_width',
         help='Bin-Width for numeric metadata',
         dest='meta_bin_width',
@@ -256,7 +270,8 @@ def parse_arguments():
     return args
 
 # ---- Data loading ---- #
-def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metadata=None, metadata_heatmap=None):
+def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, 
+             metadata=None, metadata_heatmap=None, metadata_heatmap_new=None):
     dfs = {}
     coverm_dfs = {}
 
@@ -355,6 +370,18 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
         print(f"[INFO] example samples in metadata_heatmap: {dfs['metadata_heatmap'].index[:5].tolist()}")
     else:
         print("[INFO] No heatmap metadata file provided.")
+    
+    if metadata_heatmap_new is not None:
+        if metadata_heatmap_new.endswith(".csv"):
+            dfs['metadata_heatmap_new'] = pd.read_csv(metadata_heatmap_new, index_col=0)
+        elif metadata_heatmap_new.endswith(".tsv") or metadata_heatmap_new.endswith(".tabular"):
+            dfs['metadata_heatmap_new'] = pd.read_csv(metadata_heatmap_new, sep="\t", index_col=0)
+        else:
+            dfs['metadata_heatmap_new'] = pd.read_csv(metadata_heatmap_new, index_col=0)
+        print(f"[INFO] metadata_heatmap_new loaded: {dfs['metadata_heatmap_new'].shape} rows x columns")
+        print(f"[INFO] example samples in metadata_heatmap_new: {dfs['metadata_heatmap_new'].index[:5].tolist()}")
+    else:
+        print("[INFO] No heatmap metadata file provided.")
 
     return dfs
 
@@ -414,6 +441,7 @@ if __name__ == '__main__':
         quast=args.quast_file,
         metadata=args.metadata_file,
         metadata_heatmap=args.metadata_heatmap_file,
+        metadata_heatmap_new=args.metadata_heatmap_new_file,
     )
 
     dfs['coverm'] = merged_coverm(dfs['coverm'])
@@ -441,7 +469,6 @@ if __name__ == '__main__':
     else:
         aq_tax_rank = "phylum"
 
-    
 
     # ---- Batka metric selection ----
     if args.bakta_metrics:
@@ -543,15 +570,19 @@ if __name__ == '__main__':
     # drep and heatmap
     species_level_plot(dfs['drep'], args.output)
     
-    # ---- dRep_taxa_plot ----
-    drep_taxa_plot(
+
+    # ---- dRep cluster plot ----
+    drep_cluster_plot(
         dfs["drep"],
         dfs["gtdb"],
         args.output,
-        rank=tax_rank,                 
+        tax_level=tax_rank,
         top_n=args.n,
-        fig_size=comp_fig_size if comp_fig_size is not None else (10, 6),
+        fig_size=comp_fig_size,
         fmt=args.format,
+        checkm2_df=dfs.get("checkm2"),
+        quast_df=dfs.get("quast"),
+        bakta_df=dfs.get("bakta"),
     )
 
     mag_detection_heatmap(dfs["coverm"], args.output)
@@ -562,8 +593,8 @@ if __name__ == '__main__':
         dfs["gtdb"],
         args.output,
         rank=tax_rank,
-        metadata_df=dfs.get("metadata_heatmap"),
-        meta_col=args.meta_col,
+        metadata_df=dfs.get("metadata_heatmap_new"),
+        meta_cols=args.meta_cols,
         meta_bin_width=args.meta_bin_width,
         fmt=args.format,
     )
