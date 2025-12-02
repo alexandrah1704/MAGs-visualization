@@ -564,8 +564,74 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
                     linewidth=0.2
                 )
 
-        ax_heatmap.set_xlabel('Cluster quality / size / GC / CDS / rRNAs / Hypo/CDS', fontsize=10)
-
+        # Labels over heatmap
+        ax_heatmap.set_xlabel('')
+        label_y = len(cluster_data) - 0.5 + 0.5  # Etwas über der obersten Zeile
+        
+        # Quality
+        ax_heatmap.text(
+            block_pos['quality'] + 0.5,
+            label_y,
+            'Quality',
+            ha='center',
+            va='bottom',
+            fontsize=8,
+            rotation=90
+        )
+        
+        # QUAST labels
+        if quast_available:
+            ax_heatmap.text(
+                block_pos['size'] + 0.5,
+                label_y,
+                'Genome\nsize',
+                ha='center',
+                va='bottom',
+                fontsize=8,
+                rotation=90
+            )
+            ax_heatmap.text(
+                block_pos['gc'] + 0.5,
+                label_y,
+                'GC %',
+                ha='center',
+                va='bottom',
+                fontsize=8,
+                rotation=90
+            )
+        
+        # Bakta labels
+        if bakta_available:
+            ax_heatmap.text(
+                block_pos['cds'] + 0.5,
+                label_y,
+                'CDS',
+                ha='center',
+                va='bottom',
+                fontsize=8,
+                rotation=90
+            )
+            ax_heatmap.text(
+                block_pos['rrna'] + 0.5,
+                label_y,
+                'rRNA',
+                ha='center',
+                va='bottom',
+                fontsize=8,
+                rotation=90
+            )
+            
+            if 'hypo_ratio' in block_pos:
+                ax_heatmap.text(
+                    block_pos['hypo_ratio'] + 0.5,
+                    label_y,
+                    'Hypo/\nCDS',
+                    ha='center',
+                    va='bottom',
+                    fontsize=8,
+                    rotation=90
+                )
+                
         # ---- Legends and colorbars under heatmap ----
         pos = ax_heatmap.get_position()
         legend_y = pos.y0 - 0.15
