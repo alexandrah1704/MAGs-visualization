@@ -318,12 +318,29 @@ def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
     def _plot_meta(df_checkm, metadata_df, meta_col, output_path, tag, fig_size, fmt, bin_width, top_n):
         # ---- Join via canonical key ----
         df_checkm = df_checkm.copy()
-        df_checkm["__key__"] = df_checkm.index.map(normalize_id)
-
         meta_df = metadata_df.copy()
+
         if "user_genome" in meta_df.columns and meta_df.index.name != "user_genome":
             meta_df.set_index("user_genome", inplace=True)
-        meta_df["__key__"] = meta_df.index.map(normalize_id)
+
+        meta_index_str = meta_df.index.astype(str)
+        has_bin = meta_index_str.str.contains("_bin_").any()
+
+        def sample_key(s):
+            """Für Sample-Level: normalize + Stamm vor erstem '_' oder '.'"""
+            if pd.isna(s):
+                return s
+            s_norm = normalize_id(str(s))
+            return re.split(r'[_\.]', s_norm, 1)[0]
+
+        if has_bin:
+            # 1:1 Bin-Matching (metadata.tsv with SRR..._bin_..._fasta)
+            df_checkm["__key__"] = df_checkm.index.map(normalize_id)
+            meta_df["__key__"] = meta_df.index.map(normalize_id)
+        else:
+            # Sample-/SRR-Level-Matching (metadata_heatmap_new.tsv with SRR24759597)
+            df_checkm["__key__"] = df_checkm.index.map(sample_key)
+            meta_df["__key__"] = meta_df.index.map(sample_key)
 
         left  = df_checkm.set_index("__key__", drop=True)
         right = meta_df.set_index("__key__", drop=True)[[meta_col]]
