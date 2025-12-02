@@ -199,7 +199,7 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
                 return f"Unknown {rank_col}"
             name = str(v).strip()
             if name == "":
-                return f"Unnamed {rank_col}"
+                return f"Unclassified {rank_col}"
             return name
 
         df["__rank_display__"] = df[rank_col].apply(_norm_name)
