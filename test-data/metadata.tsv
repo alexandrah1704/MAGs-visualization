@@ -1,68 +1,21 @@
-user_genome	weather	temperature
-SRR24759597_bin_27614_fasta	sunny	23.4
-SRR24759597_bin_73064_fasta	cloudy	19.8
-SRR24759598_bin_119213_fasta	rainy	15.2
-SRR24759598_bin_132977_fasta	sunny	27.1
-SRR24759598_bin_48266_fasta	cloudy	21.7
-SRR24759598_bin_98484_fasta	sunny	29.3
-SRR24759599_bin_112799_fasta	rainy	16.9
-SRR24759599_bin_69512_fasta	cloudy	18.5
-SRR24759599_bin_70226_fasta	sunny	24.0
-SRR24759599_bin_87209_fasta	rainy	17.6
-SRR24759600_bin_132439_fasta	sunny	26.2
-SRR24759600_bin_138516_fasta	cloudy	20.3
-SRR24759600_bin_148507_fasta	rainy	14.9
-SRR24759600_bin_174831_fasta	sunny	25.7
-SRR24759600_bin_59453_fasta	cloudy	19.1
-SRR24759600_bin_64602_fasta	sunny	28.4
-SRR24759600_bin_66323_fasta	rainy	16.3
-SRR24759600_bin_93717_fasta	cloudy	21.0
-SRR24759601_bin_14828_fasta	sunny	27.8
-SRR24759601_bin_19726_fasta	rainy	15.7
-SRR24759601_bin_32359_fasta	cloudy	22.1
-SRR24759602_bin_25553_fasta	sunny	26.9
-SRR24759602_bin_46147_fasta	rainy	17.2
-SRR24759602_bin_50685_fasta	cloudy	20.8
-SRR24759603_bin_106630_fasta	sunny	28.1
-SRR24759603_bin_355_fasta	cloudy	19.5
-SRR24759603_bin_35745_fasta	rainy	16.0
-SRR24759603_bin_47484_fasta	sunny	25.9
-SRR24759603_bin_51590_fasta	cloudy	21.3
-SRR24759604_bin_107333_fasta	sunny	27.2
-SRR24759604_bin_124576_fasta	rainy	15.4
-SRR24759604_bin_148146_fasta	cloudy	20.6
-SRR24759604_bin_153311_fasta	sunny	24.8
-SRR24759605_bin_35353_fasta	sunny	29.0
-SRR24759605_bin_65734_fasta	cloudy	19.9
-SRR24759606_bin_22995_fasta	rainy	16.7
-SRR24759606_bin_23932_fasta	cloudy	21.2
-SRR24759606_bin_47167_fasta	sunny	27.5
-SRR24759606_bin_54634_fasta	sunny	26.1
-SRR24759607_bin_11773_fasta	cloudy	20.1
-SRR24759607_bin_27236_fasta	rainy	17.3
-SRR24759607_bin_33985_fasta	cloudy	22.4
-SRR24759607_bin_47484_fasta	sunny	28.7
-SRR24759607_bin_51590_fasta	rainy	16.5
-SRR24759608_bin_94754_fasta	sunny	27.0
-SRR24759609_bin_32066_fasta	cloudy	19.6
-SRR24759609_bin_32290_fasta	rainy	15.9
-SRR24759609_bin_34512_fasta	cloudy	21.8
-SRR24759609_bin_95729_fasta	sunny	26.6
-SRR24759610_bin_19_fasta	sunny	29.5
-SRR24759610_bin_62914_fasta	cloudy	20.4
-SRR24759611_bin_62503_fasta	rainy	16.8
-SRR24759612_bin_51939_fasta	cloudy	21.5
-SRR24759612_bin_52183_fasta	sunny	27.6
-SRR24759612_bin_65827_fasta	rainy	15.6
-SRR24759613_bin_105744_fasta	sunny	28.3
-SRR24759613_bin_38453_fasta	cloudy	19.7
-SRR24759613_bin_43381_fasta	rainy	16.2
-SRR24759613_bin_56459_fasta	sunny	26.8
-SRR24759614_bin_135155_fasta	sunny	27.9
-SRR24759614_bin_135650_fasta	cloudy	20.2
-SRR24759615_bin_128743_fasta	rainy	16.1
-SRR24759615_bin_79847_fasta	cloudy	21.1
-SRR24759616_bin_27462_fasta	sunny	25.4
-SRR24759616_bin_28305_fasta	cloudy	19.3
-SRR24759616_bin_33137_fasta	rainy	17.0
-SRR24759616_bin_36185_fasta	rainy	18.0
+run_accession	weather	temp	ground	sample_alias
+SRR24759600	sunny	26.2	dry	II3
+SRR24759601	sunny	27.8	dry	II2
+SRR24759604	sunny	27.2	dry	I3
+SRR24759608	sunny	27.0	dry	SI2
+SRR24759609	cloudy	19.6	moist	SI1
+SRR24759610	sunny	29.5	dry	S3
+SRR24759611	rainy	16.8	wet	S2
+SRR24759614	sunny	27.9	dry	P2
+SRR24759597	sunny	3.4	dry	IP3
+SRR24759602	sunny	26.9	dry	II1
+SRR24759598	rainy	15.2	wet	IP2
+SRR24759603	sunny	28.1	dry	SIP3
+SRR24759599	rainy	16.9	wet	IP1
+SRR24759606	rainy	16.7	wet	SIP1
+SRR24759613	sunny	28.3	dry	P3
+SRR24759605	sunny	29.0	dry	SIP2
+SRR24759615	rainy	16.1	wet	I2
+SRR24759607	cloudy	20.1	moist	SI3
+SRR24759612	cloudy	21.5	moist	S1
+SRR24759616	sunny	25.4	dry	I1
