@@ -33,8 +33,8 @@ def extract_rank(tax, rank: str):
         part = part.strip()
         if part.startswith(prefix):
             name = part[len(prefix):].strip()
-            return name if name else "Unnamed"
-    return "Unnamed"
+            return name if name else "Unclassified"
+    return "Unclassified"
 
 def normalize_id(s: str) -> str:
     return normalize_genome_id(s)
@@ -91,21 +91,19 @@ def process_metadata_column(meta_aligned, meta_col, meta_bin_width=5.0, palette_
     if is_bool_dtype(raw):
         bool_like = True
     else:
-        # Werte als Strings normieren
         lowered = {str(v).strip().lower() for v in pd.unique(raw)}
         bool_tokens = {"true", "false", "yes", "no", "0", "1"}
         if lowered and lowered.issubset(bool_tokens):
             bool_like = True
 
     if bool_like:
-        # Behandle diese Spalte als kategorial (z.B. TRUE/FALSE)
         meta_cat = (
             meta_aligned.astype("string")
             .fillna(unknown_label)
             .replace("", unknown_label)
         )
         meta_category_per_sample = meta_cat.to_dict()
-        meta_title = meta_col  # oder z.B. f"{meta_col} (yes/no)"
+        meta_title = meta_col
 
         categories = list(sorted(set(meta_category_per_sample.values())))
         meta_color_per_category = {
@@ -232,8 +230,8 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
     # sort taxa columns by total abundance;'Unnamed' to the end
     cols = heat.sum(axis=0).sort_values(ascending=False).index.tolist()
-    if "Unnamed" in cols:
-        cols = [c for c in cols if c != "Unnamed"] + ["Unnamed"]
+    if "Unclassified" in cols:
+        cols = [c for c in cols if c != "Unclassified"] + ["Unclassified"]
     heat = heat.loc[:, cols]
 
     n_rows, n_cols = heat.shape

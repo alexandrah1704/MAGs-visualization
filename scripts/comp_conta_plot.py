@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.gridspec as gridspec
 from id_normalizer import normalize_genome_id
+from pandas.api.types import is_bool_dtype
 
 
 prefix_map = {
@@ -94,18 +95,35 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
     cnt_mq,  _ = np.histogram(df_vis.loc[cat_mq_vis,  "x"], bins=bins_x)
     cnt_hq,  _ = np.histogram(df_vis.loc[cat_hq_vis,  "x"], bins=bins_x)
 
-    p_low = cnt_low / total_n
-    p_mq  = cnt_mq  / total_n
-    p_hq  = cnt_hq  / total_n
+    if total_n > 0:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            p_low = cnt_low / total_n
+            p_mq  = cnt_mq  / total_n
+            p_hq  = cnt_hq  / total_n
+    else:
+        p_low = np.zeros_like(cnt_low, dtype=float)
+        p_mq  = np.zeros_like(cnt_mq,  dtype=float)
+        p_hq  = np.zeros_like(cnt_hq,  dtype=float)
 
     # stacked bins
-    ax_histx.bar(bin_centers_x, p_low, width=1.0, color=col_low, edgecolor="white", linewidth=0.5)
-    ax_histx.bar(bin_centers_x, p_mq,  width=1.0, bottom=p_low, color=col_mq, edgecolor="white", linewidth=0.5)
-    ax_histx.bar(bin_centers_x, p_hq,  width=1.0, bottom=p_low+p_mq, color=col_hq, edgecolor="white", linewidth=0.5)
+    ax_histx.bar(bin_centers_x, p_low, width=1.0,
+                 color=col_low, edgecolor="white", linewidth=0.5)
+    ax_histx.bar(bin_centers_x, p_mq,  width=1.0, bottom=p_low,
+                 color=col_mq, edgecolor="white", linewidth=0.5)
+    ax_histx.bar(bin_centers_x, p_hq,  width=1.0, bottom=p_low + p_mq,
+                 color=col_hq, edgecolor="white", linewidth=0.5)
 
     ax_histx.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
     ax_histx.set_ylabel("% of MAGs")
-    ax_histx.set_ylim(0, (p_low+p_mq+p_hq).max() * 1.15)
+
+    # Sicheres y-Limit
+    sum_p_x = p_low + p_mq + p_hq
+    max_val_x = float(np.nanmax(sum_p_x)) if sum_p_x.size > 0 else 0.0
+    if not np.isfinite(max_val_x) or max_val_x == 0:
+        ax_histx.set_ylim(0, 1.0)
+    else:
+        ax_histx.set_ylim(0, max_val_x * 1.15)
+
     ax_histx.grid(True, linestyle=":", linewidth=0.7, alpha=0.7)
 
     # --- axis lines ---
@@ -126,18 +144,34 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
     cnt_mq_y,  _ = np.histogram(df_vis.loc[cat_mq_vis,  "y"], bins=bins_y)
     cnt_hq_y,  _ = np.histogram(df_vis.loc[cat_hq_vis,  "y"], bins=bins_y)
 
-    p_low_y = cnt_low_y / total_n
-    p_mq_y  = cnt_mq_y  / total_n
-    p_hq_y  = cnt_hq_y  / total_n
+    if total_n > 0:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            p_low_y = cnt_low_y / total_n
+            p_mq_y  = cnt_mq_y  / total_n
+            p_hq_y  = cnt_hq_y  / total_n
+    else:
+        p_low_y = np.zeros_like(cnt_low_y, dtype=float)
+        p_mq_y  = np.zeros_like(cnt_mq_y,  dtype=float)
+        p_hq_y  = np.zeros_like(cnt_hq_y,  dtype=float)
 
     # stacked horizontal bins
-    ax_histy.barh(bin_centers_y, p_low_y, height=0.1, color=col_low, edgecolor="white", linewidth=0.5)
-    ax_histy.barh(bin_centers_y, p_mq_y,  height=0.1, left=p_low_y, color=col_mq, edgecolor="white", linewidth=0.5)
-    ax_histy.barh(bin_centers_y, p_hq_y,  height=0.1, left=p_low_y+p_mq_y, color=col_hq, edgecolor="white", linewidth=0.5)
+    ax_histy.barh(bin_centers_y, p_low_y, height=0.1,
+                  color=col_low, edgecolor="white", linewidth=0.5)
+    ax_histy.barh(bin_centers_y, p_mq_y,  height=0.1, left=p_low_y,
+                  color=col_mq, edgecolor="white", linewidth=0.5)
+    ax_histy.barh(bin_centers_y, p_hq_y,  height=0.1, left=p_low_y + p_mq_y,
+                  color=col_hq, edgecolor="white", linewidth=0.5)
 
     ax_histy.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
     ax_histy.set_xlabel("% of MAGs")
-    ax_histy.set_xlim(0, (p_low_y+p_mq_y+p_hq_y).max() * 1.15)
+
+    sum_p_y = p_low_y + p_mq_y + p_hq_y
+    max_val_y = float(np.nanmax(sum_p_y)) if sum_p_y.size > 0 else 0.0
+    if not np.isfinite(max_val_y) or max_val_y == 0:
+        ax_histy.set_xlim(0, 1.0)
+    else:
+        ax_histy.set_xlim(0, max_val_y * 1.15)
+
     ax_histy.grid(True, linestyle=":", linewidth=0.7, alpha=0.7)
 
     # --- axis lines ---
@@ -334,11 +368,10 @@ def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
             return re.split(r'[_\.]', s_norm, 1)[0]
 
         if has_bin:
-            # 1:1 Bin-Matching (metadata.tsv with SRR..._bin_..._fasta)
+            # 1:1 Bin-Matching
             df_checkm["__key__"] = df_checkm.index.map(normalize_id)
             meta_df["__key__"] = meta_df.index.map(normalize_id)
         else:
-            # Sample-/SRR-Level-Matching (metadata_heatmap_new.tsv with SRR24759597)
             df_checkm["__key__"] = df_checkm.index.map(sample_key)
             meta_df["__key__"] = meta_df.index.map(sample_key)
 
@@ -356,40 +389,69 @@ def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
             print(f"[WARN] No data for metadata column '{meta_col}' in {tag}")
             return
 
-        # ---- Numeric vs categorical metadata ----
-        meta_num = pd.to_numeric(df[meta_col], errors="coerce")
-        frac_numeric = meta_num.notna().mean()
+         # ---- Numeric vs categorical metadata vs bool ----
         unknown_label = f"Unknown {meta_col}"
 
-        if frac_numeric >= 0.8:
-            # numeric (temperature)
-            vmin = np.floor(meta_num.min() / bin_width) * bin_width
-            vmax = np.ceil(meta_num.max() / bin_width) * bin_width
-            if vmin == vmax:
-                vmax = vmin + bin_width
+        raw = df[meta_col]
+        raw_non_na = raw.dropna()
 
-            bins = np.arange(vmin, vmax + bin_width, bin_width)
-            labels_bins = [
-                f"{int(left)}–{int(right)}"
-                for left, right in zip(bins[:-1], bins[1:])
-            ]
+        # bool
+        bool_like = False
+        if is_bool_dtype(raw_non_na):
+            bool_like = True
+        else:
+            lowered = {str(v).strip().lower() for v in pd.unique(raw_non_na)}
+            bool_tokens = {"true", "false", "yes", "no", "0", "1"}
+            if lowered and lowered.issubset(bool_tokens):
+                bool_like = True
 
-            # Binning
-            df["__meta_display__"] = pd.cut(meta_num, bins=bins, 
-                                            labels=labels_bins, include_lowest=True)
-
-            # NaN -> Unknown temperature
-            df["__meta_display__"] = df["__meta_display__"].astype("object")
-            df["__meta_display__"] = df["__meta_display__"].where(df["__meta_display__"].notna(),
-                                                                  other=unknown_label)
-            meta_kind = f"{meta_col} (binned, {bin_width:g} units)"
+        if bool_like:
+            df["__meta_display__"] = (
+                raw.astype("string")
+                   .fillna(unknown_label)
+                   .replace("", unknown_label)
+            )
+            meta_kind = meta_col
 
         else:
-            # categorial (weather)
-            df["__meta_display__"] = (df[meta_col].astype("string")
-                                      .fillna(unknown_label)
-                                      .replace("", unknown_label))
-            meta_kind = meta_col
+            #numeric vs categorical
+            meta_num = pd.to_numeric(raw, errors="coerce")
+            frac_numeric = meta_num.notna().mean()
+
+            if frac_numeric >= 0.8 and meta_num.notna().sum() > 0:
+                # numeric (Temperature)
+                vmin = np.floor(meta_num.min() / bin_width) * bin_width
+                vmax = np.ceil(meta_num.max() / bin_width) * bin_width
+                if vmin == vmax:
+                    vmax = vmin + bin_width
+
+                bins = np.arange(vmin, vmax + bin_width, bin_width)
+                labels_bins = [
+                    f"{int(left)}–{int(right)}"
+                    for left, right in zip(bins[:-1], bins[1:])
+                ]
+
+                df["__meta_display__"] = pd.cut(
+                    meta_num,
+                    bins=bins,
+                    labels=labels_bins,
+                    include_lowest=True,
+                )
+
+                df["__meta_display__"] = df["__meta_display__"].astype("object")
+                df["__meta_display__"] = df["__meta_display__"].where(
+                    df["__meta_display__"].notna(),
+                    other=unknown_label,
+                )
+                meta_kind = f"{meta_col} (binned, {bin_width:g} units)"
+            else:
+                # categorial (Condition, Treatment)
+                df["__meta_display__"] = (
+                    raw.astype("string")
+                       .fillna(unknown_label)
+                       .replace("", unknown_label)
+                )
+                meta_kind = meta_col
 
         # --- Top-n categories + "Other" ---
         counts = df["__meta_display__"].value_counts(dropna=False)
