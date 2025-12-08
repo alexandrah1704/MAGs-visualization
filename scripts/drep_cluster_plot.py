@@ -285,7 +285,7 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     if rep_quality_available:
         # [sample names | bars | spacer | taxonomy | spacer | heatmap]
         gs = gridspec.GridSpec(1, 6, figure=fig, 
-                            width_ratios=[0.10, 2, 0.14, 0.25, 0.05, 0.4], 
+                            width_ratios=[0.08, 2, 0.30, 0.25, 0.05, 0.4], 
                             wspace=0.02)
         ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])

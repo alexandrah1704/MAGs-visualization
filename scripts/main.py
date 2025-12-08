@@ -545,16 +545,16 @@ if __name__ == '__main__':
         )
     
     # --- Metadata completeness/contamination plots ---
-    if args.metadata_heatmap_new_file is not None and "metadata_heatmap_new" in dfs and args.meta_col is not None:
-        if args.meta_col not in dfs["metadata_heatmap_new"].columns:
+    if args.metadata_file is not None and "metadata" in dfs and args.meta_col is not None:
+        if args.meta_col not in dfs["metadata"].columns:
             print(f"[WARN] Metadata column '{args.meta_col}' not found in metadata table. "
-                  f"Available columns: {list(dfs['metadata_heatmap_new'].columns)}")
+                  f"Available columns: {list(dfs['metadata'].columns)}")
         else:
             print(f"[RUN] Metadata plot colored by '{args.meta_col}' ...")
             metadata_completeness_contamination_plot(
                 dfs["checkm"],
                 dfs["checkm2"],
-                dfs["metadata_heatmap_new"],
+                dfs["metadata"],
                 meta_col=args.meta_col,
                 output_path=args.output,
                 fig_size=comp_fig_size if comp_fig_size is not None else (10, 8),

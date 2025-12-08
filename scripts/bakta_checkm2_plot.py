@@ -2,12 +2,14 @@
 # x = completeness bins, y = bakta features
 # Coloring options: quality, tax, metadata
 import numpy as np
+import re
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 import hashlib
 from id_normalizer import normalize_genome_id, normalize_genome_series
+from pandas.api.types import is_bool_dtype
 
 
 def normalize_id_series(s: pd.Series) -> pd.Series:
@@ -32,36 +34,58 @@ def _coerce_bakta_to_wide(bakta_raw: pd.DataFrame) -> pd.DataFrame:
     - columns = bakta features
     """
     df = bakta_raw.copy()
+    wide = None
 
-    if "Annotation" in df.columns:
+    feature_names = {
+        "cdss", "trnas", "rrnas", "hypotheticals",
+        "crispr arrays", "gaps", "ncrna regions", "ncrnas",
+        "orics", "orits", "orivs"
+    }
+    if any(str(x).strip().lower() in feature_names for x in df.index[:10]):
+        drop_mask = df.index.to_series().astype(str).str.strip().str.lower().isin(
+            {"#key", "key", "annotation"}
+        )
+        df2 = df[~drop_mask]
+        wide = df2.T
+
+    elif "Annotation" in df.columns:
         wide = df.set_index("Annotation").T
+
+    # Case: 'Annotation'
     elif (df.index.name is not None) and (str(df.index.name).strip().lower() == "annotation"):
         wide = df.T
+
+    # Case: first column = typical feature name
     elif df.shape[1] >= 2 and any(
-        str(x).strip().lower() in {"cdss", "trnas", "rrnas", "hypotheticals", "crispr arrays", "gaps"}
+        str(x).strip().lower() in feature_names
         for x in df.iloc[:, 0].head(10)
     ):
         df = df.rename(columns={df.columns[0]: "Annotation"})
         wide = df.set_index("Annotation").T
+
+    # *_Count
     elif (df.columns.to_series().astype(str)
               .str.contains(r"_count$", case=False, regex=True).mean() > 0.5):
-        wide = df.T 
+        wide = df.T
     elif (df.index.to_series().astype(str)
               .str.contains(r"_count$", case=False, regex=True).mean() > 0.5):
         wide = df
-    else:
-        print("[WARN] Couldn't detect Bakta orientation.")
+
+    # Fallback
+    if wide is None:
+        print("[WARN] Couldn't detect Bakta orientation. Using raw table.")
         wide = df
 
+    # Genome-IDs normalizing
     norm = normalize_id_series(wide.index.to_series())
     wide.index = pd.Index(norm.values, name="Genome")
 
-    # clean feature names
     wide.columns = wide.columns.str.strip()
     for c in wide.columns:
         wide[c] = pd.to_numeric(wide[c], errors="coerce")
 
     return wide
+
 
 def stable_jitter(keys: pd.Series, scale=0.06) -> np.ndarray:
     """ Deterministic jitter """
@@ -95,11 +119,26 @@ def bakta_annotation_plot(dfs: dict, output_dir: str, metrics=None,
     compl_col = _first_present_col(checkm2, ["Completeness", "completeness", "CheckM2 completeness"])
     cont_col = _first_present_col(checkm2, ["Contamination", "contamination", "CheckM2 contamination"])
 
+    # passende ID-Spalte für CheckM2 suchen (analog wie im dRep-Code)
+    if checkm2.index.name and str(checkm2.index.name).strip().lower() not in ("", "index"):
+        id_series = checkm2.index.to_series()
+    else:
+        id_col = _first_present_col(
+            checkm2,
+            ["Name", "Bin Id", "Bin_Id", "Bin", "Genome", "user_genome"]
+        )
+        if id_col is None:
+            raise ValueError(
+                "Could not find genome ID column in CheckM2 table "
+                "(tried Name / Bin Id / Bin / Genome / user_genome)."
+            )
+        id_series = checkm2[id_col]
+
+    checkm2["__id__"] = id_series.astype(str).apply(normalize_id_universal)
+
     # build normalized join keys
     bakta = bakta.reset_index().rename(columns={"Genome": "__id__"})
     bakta["__id__"] = bakta["__id__"].apply(normalize_id_universal)
-    
-    checkm2["__id__"] = checkm2.index.to_series().apply(normalize_id_universal)
 
     # --- Choose features ---
     if metrics is None:
@@ -126,9 +165,6 @@ def bakta_annotation_plot(dfs: dict, output_dir: str, metrics=None,
     checkm2_sub = checkm2[cols_keep]
 
     merged = bakta_sub.merge(checkm2_sub, on="__id__", how="inner")
-    if merged.empty:
-        print("[WARN] No overlap between Bakta and CheckM2")
-        return
     
     # ---- calculate Ratios: Metric / cdss ----
     ratio_cols = {}
@@ -235,47 +271,81 @@ def bakta_annotation_plot(dfs: dict, output_dir: str, metrics=None,
             if "user_genome" in metadata.columns and metadata.index.name != "user_genome":
                 metadata.set_index("user_genome", inplace=True)
             
-            metadata = metadata.rename_axis("orig_id").reset_index()
-            metadata["__id__"] = metadata["orig_id"].astype(str).apply(normalize_id_universal)
-            
+            meta_index_str = metadata.index.astype(str)
+            has_bin = meta_index_str.str.contains("_bin_").any()
+
+            def sample_key(s: str):
+                if pd.isna(s):
+                    return s
+                s_norm = normalize_id_universal(str(s))
+                return re.split(r'[_\.]', s_norm, 1)[0]
+
+            if has_bin:
+                metadata["__key__"] = metadata.index.to_series().map(normalize_id_universal)
+                merged["__key__"]   = merged["__id__"].astype(str).map(normalize_id_universal)
+            else:
+                metadata["__key__"] = metadata.index.to_series().map(sample_key)
+                merged["__key__"]   = merged["__id__"].astype(str).map(sample_key)
+
             if meta_col not in metadata.columns:
                 print(f"[WARN] Column '{meta_col}' not found in metadata → available: {metadata.columns.tolist()}")
                 color_by_effective = None
             else:
                 merged = merged.merge(
-                    metadata[["__id__", meta_col]],
-                    on="__id__",
+                    metadata[["__key__", meta_col]],
+                    on="__key__",
                     how="left"
                 )
                 
-                meta_num = pd.to_numeric(merged[meta_col], errors="coerce")
-                frac_numeric = meta_num.notna().mean()
-                
-                if frac_numeric >= 0.8:
-                    # Numeric (temperature)
-                    bin_width = 5.0
-                    vmin = np.floor(meta_num.min() / bin_width) * bin_width
-                    vmax = np.ceil(meta_num.max() / bin_width) * bin_width
-                    if vmin == vmax:
-                        vmax = vmin + bin_width
-                    
-                    bins_meta = np.arange(vmin, vmax + bin_width, bin_width)
-                    labels_meta = [
-                        f"{int(left)}–{int(right)}"
-                        for left, right in zip(bins_meta[:-1], bins_meta[1:])
-                    ]
-                    
-                    merged[meta_col] = pd.cut(
-                        meta_num,
-                        bins=bins_meta,
-                        labels=labels_meta,
-                        include_lowest=True
-                    ).astype("object").fillna(f"Unknown {meta_col}") # type: ignore
-                    
+                raw = merged[meta_col]
+                raw_non_na = raw.dropna()
+                unknown_label = f"Unknown {meta_col}"
+
+                bool_like = False
+                if is_bool_dtype(raw_non_na):
+                    bool_like = True
                 else:
-                    # Categorical (weather)
-                    merged[meta_col] = merged[meta_col].astype("string").fillna(f"Unknown {meta_col}")
-                
+                    lowered = {str(v).strip().lower() for v in pd.unique(raw_non_na)}
+                    bool_tokens = {"true", "false", "yes", "no", "0", "1"}
+                    if lowered and lowered.issubset(bool_tokens):
+                        bool_like = True
+
+                if bool_like:
+                    merged[meta_col] = (
+                        raw.astype("string")
+                           .fillna(unknown_label)
+                           .replace("", unknown_label)
+                    )
+                else:
+                    meta_num = pd.to_numeric(raw, errors="coerce")
+                    frac_numeric = meta_num.notna().mean()
+
+                    if frac_numeric >= 0.8 and meta_num.notna().sum() > 0:
+                        bin_width = 5.0
+                        vmin = np.floor(meta_num.min() / bin_width) * bin_width
+                        vmax = np.ceil(meta_num.max() / bin_width) * bin_width
+                        if vmin == vmax:
+                            vmax = vmin + bin_width
+                        
+                        bins_meta = np.arange(vmin, vmax + bin_width, bin_width)
+                        labels_meta = [
+                            f"{int(left)}–{int(right)}"
+                            for left, right in zip(bins_meta[:-1], bins_meta[1:])
+                        ]
+                        
+                        merged[meta_col] = pd.cut(
+                            meta_num,
+                            bins=bins_meta,
+                            labels=labels_meta,
+                            include_lowest=True
+                        ).astype("object").fillna(unknown_label)  # type: ignore
+                    else:
+                        merged[meta_col] = (
+                            raw.astype("string")
+                               .fillna(unknown_label)
+                               .replace("", unknown_label)
+                        )
+
                 top_n_meta = 10
                 counts = merged[meta_col].value_counts()
                 if len(counts) > top_n_meta:

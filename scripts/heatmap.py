@@ -61,7 +61,7 @@ def process_metadata_column(meta_aligned, meta_col, meta_bin_width=5.0, palette_
          "#e5e7eb", "#10b981", "#facc15", "#64748b", "#fb7185",
          "#0ea5e9", "#a3e635", "#fbbf24", "#f97373", "#4b5563"],
         # Palette 1: reds/yellows/browns
-        ["#b91c1c", "#fbbf24", "#d97706", "#ea580c", "#dc2626", "#b91c1c",
+        ["#fbbf24", "#d97706", "#ea580c", "#dc2626", "#b91c1c",
          "#f59e0b", "#ca8a04", "#92400e", "#78350f","#f87171",
          "#fb923c", "#fde047", "#ef4444", "#c2410c""#ea580c",],
         # Palette 2: purples/pinks/teals
@@ -300,7 +300,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # Calculate width ratios: legends | spacer | metadata bars | spacer | heatmap | spacer | right bars
     n_meta_cols = len(all_metadata)
     meta_bars_width = n_meta_cols * 0.35 if n_meta_cols > 0 else 0.0
-    width_ratios = [2.0, 0.45, meta_bars_width, 1.5, 8.0, 0.2, 2.0] if n_meta_cols > 0 else [3.0, 0.5, 8.0, 0.2, 2.0]
+    width_ratios = [2.0, 0.15, meta_bars_width, 2.0, 8.0, 0.2, 2.0] if n_meta_cols > 0 else [3.0, 0.5, 8.0, 0.2, 2.0]
     
     fig = plt.figure(figsize=(max(10, safe_cols * 0.62 + meta_bars_width), max(8, safe_rows * 0.32)))
 
