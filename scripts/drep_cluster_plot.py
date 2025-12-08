@@ -35,17 +35,6 @@ def extract_rank(tax, rank: str):
     
     return "Unclassified"
 
-def get_cluster_majority_quality(cluster_df):
-    """
-    Determine majority quality class of cluster.
-    """
-    # Nur MAGs mit bekannter Quality
-    known = cluster_df[cluster_df['Quality'].isin(['High', 'Medium', 'Low'])]
-    if known.empty:
-        return 'Unknown'
-    
-    counts = known['Quality'].value_counts()
-    return counts.idxmax()
 
 # ---- Main plot function ----
 def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str, 
@@ -55,10 +44,13 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     """
     Create a horizontal bar plot showing the top N clusters by member count,
     annotated with:
-    - representative tax (majority within cluster)
-    - majority checkm2 quality per cluster
-    - average genome size and GC % from QUAST
-    - average CDS, rRNA counts and hypotheticals/CDS ratio
+    - number of MAGs
+    - representative ID
+    - representative taxonomy - phylum and genus
+    - heatmap:
+        - completeness and contamination
+        - genome size and GC % from QUAST
+        - CDS, rRNA counts and hypotheticals/CDS ratio
     """
     
     os.makedirs(output_path, exist_ok=True)
@@ -78,126 +70,107 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     else:
         raise ValueError("dRep DataFrame must contain 'genome' column")
     
+    if 'secondary_cluster' not in drep.columns:
+        raise ValueError("dRep DataFrame must contain 'secondary_cluster' column")
+    
     # Count members per cluster
-    cluster_counts = drep.groupby('primary_cluster').size().reset_index(name='n_members')
+    cluster_counts = drep.groupby('secondary_cluster').size().reset_index(name='n_members')
     cluster_counts = cluster_counts.sort_values('n_members', ascending=False).head(top_n)
     
-    print(f"[INFO] Found {len(drep['primary_cluster'].unique())} total clusters, showing top {top_n}")
+    total_clusters = drep['secondary_cluster'].nunique()
+    print(f"[INFO] Found {total_clusters} total secondary clusters, showing top {top_n}")
     
+    # Process GTDB data
     if gtdb.index.name is not None:
         gtdb = gtdb.reset_index()
-    
+
     if 'user_genome' not in gtdb.columns or 'classification' not in gtdb.columns:
         raise ValueError("GTDB file must contain 'user_genome' and 'classification' columns")
-    
-    # Normalize genome IDs in gtdb
+
+    # Normalize genome IDs in GTDB
     gtdb['user_genome_normalized'] = gtdb['user_genome'].apply(normalize_genome_id)
+    ranks_to_extract = {tax_level, "phylum", "genus"}
+
+    for lvl in ranks_to_extract:
+        gtdb[lvl] = gtdb['classification'].apply(lambda x: extract_rank(x, lvl))
+
+    gtdb_genomes = set(gtdb['user_genome_normalized'].values)
+
+    def get_representative(cluster_genomes):
+        """Find the genome from this cluster that is in GTDB (the representative)"""
+        for genome in cluster_genomes:
+            if genome in gtdb_genomes:
+                return genome
+        # if no genome found in GTDB, take first one
+        return cluster_genomes.iloc[0]
+
+    cluster_reps = drep.groupby('secondary_cluster')['genome_normalized'].apply(get_representative).reset_index()
+    cluster_reps.columns = ['secondary_cluster', 'representative']
+
+    print(f"[INFO] Found {len(cluster_reps)} representatives, {cluster_reps['representative'].isin(gtdb_genomes).sum()} are in GTDB")
+
+
+    cluster_data = cluster_counts.merge(cluster_reps, on='secondary_cluster', how='left')
+    cluster_data['representative_display'] = cluster_data['representative'].str.replace('_fasta', '', regex=False).str.replace('srr', 'SRR', regex=False)
     
-    # Extract taxonomic information
-    gtdb[tax_level] = gtdb['classification'].apply(lambda x: extract_rank(x, tax_level))
-    
-    # Merge drep with GTDB
-    drep_with_tax = drep.merge(
-        gtdb[['user_genome_normalized', tax_level]], 
-        left_on='genome_normalized', 
-        right_on='user_genome_normalized', 
+    # Columns to merge from gtdb
+    cols_to_merge = ['user_genome_normalized', 'phylum', 'genus']
+    if tax_level not in ('phylum', 'genus'):
+        cols_to_merge.append(tax_level)
+
+    # Attach tax to cluster data
+    cluster_data = cluster_data.merge(
+        gtdb[cols_to_merge],
+        left_on='representative',
+        right_on='user_genome_normalized',
         how='left'
     )
 
-    # For each cluster, find the best taxonomy (prefer classified over "Unclassified")
-    def get_cluster_rep_and_tax(cluster_df):
-        """
-        Pick representative MAG and majority tax for cluster.
-        - Prefer MAGs with classified taxonomy != unclassified
-        - Take majority tax among classified MAGs
-        - If every MAG is unclassified in cluster: take first MAG
-        """
-        tmp = cluster_df.copy()
-        tmp[tax_level] = tmp[tax_level].fillna('Unclassified')
-        
-        classified = tmp[tmp[tax_level] != 'Unclassified']
-        
-        if not classified.empty:
-            majority_tax = classified[tax_level].mode().iloc[0]
-            rep_row = classified[classified[tax_level] == majority_tax].iloc[0]
-        else:
-            rep_row = tmp.iloc[0]
-            majority_tax = rep_row[tax_level] if pd.notna(rep_row[tax_level]) else 'Unclassified'
-        
-        return pd.Series({
-            'representative': rep_row['genome_normalized'],
-            tax_level: majority_tax,
-        })
+    cluster_data['phylum'] = cluster_data.get('phylum', 'Unclassified').fillna('Unclassified')
+    cluster_data['genus']  = cluster_data.get('genus',  'Unclassified').fillna('Unclassified')
 
-    cluster_rep = drep_with_tax.groupby('primary_cluster').apply(
-        get_cluster_rep_and_tax
-        ).reset_index()
+    if tax_level in cluster_data.columns:
+        cluster_data[tax_level] = cluster_data[tax_level].fillna('Unclassified')
 
-    # Combine cluster size & representative taxonomy
-    cluster_data = cluster_counts.merge(cluster_rep, on='primary_cluster', how='left')
-    cluster_data[tax_level] = cluster_data[tax_level].fillna('Unclassified')
     cluster_data = cluster_data.sort_values('n_members', ascending=True)
     
-    print(f"[INFO] Taxonomic breakdown:")
-    print(cluster_data[tax_level].value_counts())
+    print("[INFO] Phylum breakdown:")
+    print(cluster_data['phylum'].value_counts())
 
-    # ---- Checkm2 - majority cluster quality ----
+    # ---- CheckM2 data - completeness and contamination ----
     rep_quality_available = False
     if checkm2_df is not None:
-        print("[INFO] Processing CheckM2 data for representative quality")
+        print("[INFO] Processing CheckM2 data for representative completeness/contamination")
         checkm2 = checkm2_df.copy()
         
-        # Reset index if needed
         if checkm2.index.name is not None:
             checkm2 = checkm2.reset_index()
             checkm2.rename(columns={checkm2.columns[0]: 'Name'}, inplace=True)
-
+        
+        # Normalize genome IDs in CheckM2
         if 'Name' in checkm2.columns:
             checkm2['genome_normalized'] = checkm2['Name'].apply(normalize_genome_id)
         else:
             print("[WARN] CheckM2 DataFrame has no 'Name' column, skipping quality")
             checkm2 = None
         
-        rep_quality_available = False
-        
         if checkm2 is not None:
-            drep_with_quality = drep_with_tax.merge(
+            cluster_data = cluster_data.merge(
                 checkm2[['genome_normalized', 'Completeness', 'Contamination']],
-                on='genome_normalized',
-                how='left'
+                left_on='representative',
+                right_on='genome_normalized',
+                how='left',
+                suffixes=('', '_checkm2')
             )
-
-            def classify_quality(row):
-                if pd.isna(row['Completeness']) or pd.isna(row['Contamination']):
-                    return 'Unknown'
-                comp = row['Completeness']
-                cont = row['Contamination']
-                
-                if comp >= 90 and cont <= 5:
-                    return 'High'
-                elif comp >= 70:
-                    return 'Medium'
-                else:
-                    return 'Low'
-            
-            drep_with_quality['Quality'] = drep_with_quality.apply(classify_quality, axis=1)
-
-            cluster_quality_majority = drep_with_quality.groupby('primary_cluster').apply(
-                get_cluster_majority_quality
-            ).reset_index()
-
-            cluster_quality_majority.columns = ['primary_cluster', 'ClusterQuality']
-            cluster_data = cluster_data.merge(cluster_quality_majority, on='primary_cluster', how='left')
-            cluster_data['ClusterQuality'] = cluster_data['ClusterQuality'].fillna('Unknown')
+            cluster_data = cluster_data.drop(columns=['genome_normalized'], errors='ignore')
+            cluster_data = cluster_data.rename(columns={
+                'Completeness': 'rep_completeness',
+                'Contamination': 'rep_contamination'
+            })
             rep_quality_available = True
-    
-    # ---- QUAST: avg_genome_size, avg_gc ----
+        
+    # ---- QUAST -> representative genome_size, gc ----
     quast_available = False
-    size_norm = None
-    gc_norm = None
-    size_cmap = None
-    gc_cmap = None
-
     if quast_df is not None:
         quast = quast_df.copy()
 
@@ -223,31 +196,28 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
 
             quast_long['genome_normalized'] = quast_long['genome_raw'].apply(normalize_genome_id)
 
-            drep_with_quast = drep.merge(
+            # Merge with cluster_data
+            cluster_data = cluster_data.merge(
                 quast_long[['genome_normalized', 'gc', 'genome_size']],
-                on='genome_normalized',
-                how='left'
+                left_on='representative',
+                right_on='genome_normalized',
+                how='left',
+                suffixes=('', '_quast')
             )
-
-            cluster_quast = (
-                drep_with_quast
-                .groupby('primary_cluster')[['gc', 'genome_size']]
-                .mean()
-                .reset_index()
-                .rename(columns={'gc': 'avg_gc', 'genome_size': 'avg_genome_size'})
-            )
-
-            cluster_data = cluster_data.merge(cluster_quast, on='primary_cluster', how='left')
+            
+            cluster_data = cluster_data.rename(columns={
+                'gc': 'rep_gc',
+                'genome_size': 'rep_genome_size'
+            })
             quast_available = True
         else:
-            print("[WARN] Could not find GC (%) and/or Total length rows in QUAST file; skipping avg GC/genome size.")
+            print("[WARN] Could not find GC (%) or Total length rows in QUAST file; skipping GC/genome size.")
     
-    # ---- Bakta: avg_cds, avg_rrna, hypotheticals/CDS ----
+    # ---- Bakta -> representative cds, rrna, hypo_cds_ratio ----
     bakta_available = False
     if bakta_df is not None:
         bakta = bakta_df.copy()
 
-        # help function
         def _find_row(name_substr):
             name_substr = name_substr.lower()
             for idx in bakta.index:
@@ -266,89 +236,73 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
 
             bakta_long = pd.DataFrame({
                 "genome_raw": cds_series.index,
-                "cds":  pd.to_numeric(cds_series.values,  errors="coerce"),
+                "cds":  pd.to_numeric(cds_series.values, errors="coerce"),
                 "rrna": pd.to_numeric(rrna_series.values, errors="coerce"),
             })
-
-            # Add hypotheticals if available
+            
             has_hypotheticals = False
             if hypo_series is not None:
                 bakta_long["hypotheticals"] = pd.to_numeric(hypo_series.values, errors="coerce")
+                # Calculate ratio at MAG level
+                bakta_long["hypo_cds_ratio"] = bakta_long["hypotheticals"] / bakta_long["cds"]
+                bakta_long["hypo_cds_ratio"] = bakta_long["hypo_cds_ratio"].replace([np.inf, -np.inf], np.nan).fillna(0)
                 has_hypotheticals = True
 
-            # remove "_Count" suffix and normalize
             bakta_long["genome_raw_clean"] = bakta_long["genome_raw"].str.replace("_Count", "", regex=False)
             bakta_long["genome_normalized"] = bakta_long["genome_raw_clean"].apply(normalize_genome_id)
 
             merge_cols = ["genome_normalized", "cds", "rrna"]
             if has_hypotheticals:
-                merge_cols.append("hypotheticals")
-
-            drep_with_bakta = drep.merge(
+                merge_cols.extend(["hypotheticals", "hypo_cds_ratio"])
+            
+            cluster_data = cluster_data.merge(
                 bakta_long[merge_cols],
-                on="genome_normalized",
-                how="left",
+                left_on='representative',
+                right_on='genome_normalized',
+                how='left',
+                suffixes=('', '_bakta')
             )
-
-            agg_cols = ["cds", "rrna"]
-            if has_hypotheticals and "hypotheticals" in drep_with_bakta.columns:
-                agg_cols.append("hypotheticals")
             
-            cluster_bakta = (
-                drep_with_bakta
-                .groupby("primary_cluster")[agg_cols]
-                .mean()
-                .reset_index()
-            )
-
-            # Calculate ratio AFTER aggregation
-            if has_hypotheticals and "hypotheticals" in cluster_bakta.columns:
-                cluster_bakta["hypo_cds_ratio"] = cluster_bakta["hypotheticals"] / cluster_bakta["cds"]
-                cluster_bakta["hypo_cds_ratio"] = cluster_bakta["hypo_cds_ratio"].replace([np.inf, -np.inf], np.nan).fillna(0)
+            rename_dict = {"cds": "rep_cds", "rrna": "rep_rrna"}
+            if has_hypotheticals:
+                rename_dict["hypotheticals"] = "rep_hypotheticals"
+                rename_dict["hypo_cds_ratio"] = "rep_hypo_cds_ratio"
             
-            # Rename columns
-            rename_dict = {"cds": "avg_cds", "rrna": "avg_rrna"}
-            if has_hypotheticals and "hypotheticals" in cluster_bakta.columns:
-                rename_dict["hypotheticals"] = "avg_hypotheticals"
-                if "hypo_cds_ratio" in cluster_bakta.columns:
-                    rename_dict["hypo_cds_ratio"] = "avg_hypo_cds_ratio"
-
-            cluster_bakta = cluster_bakta.rename(columns=rename_dict)
-
-            # in cluster_data aufnehmen
-            cluster_data = cluster_data.merge(cluster_bakta, on="primary_cluster", how="left")
+            cluster_data = cluster_data.rename(columns=rename_dict)
             bakta_available = True
         else:
-            print("[WARN] Could not find CDS and/or rRNA rows in Bakta file; skipping Bakta columns.")
+            print("[WARN] Could not find CDS or rRNA rows in Bakta file; skipping Bakta columns.")
 
     # ---- Figure & Layout ----
-    # Create figure
     if fig_size is None:
-        if rep_quality_available is not None:
+        if rep_quality_available:
             fig_size = (12, max(7, top_n * 0.28))
         else:
             fig_size = (12, max(8, top_n * 0.3))
 
     fig = plt.figure(figsize=fig_size)
 
-    # Create gridspec
     if rep_quality_available:
-        # [taxonomy labels | bars | spacer | quality]
-        gs = gridspec.GridSpec(1, 4, figure=fig, width_ratios=[0.1, 2, 0.3, 0.4], wspace=0.02)
-        ax_tax = fig.add_subplot(gs[0, 0])
+        # [sample names | bars | spacer | taxonomy | spacer | heatmap]
+        gs = gridspec.GridSpec(1, 6, figure=fig, 
+                            width_ratios=[0.10, 2, 0.14, 0.25, 0.05, 0.4], 
+                            wspace=0.02)
+        ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
-        ax_heatmap = fig.add_subplot(gs[0, 3])
+        ax_taxonomy = fig.add_subplot(gs[0, 4])
+        ax_heatmap = fig.add_subplot(gs[0, 5])
     else:
-        gs = gridspec.GridSpec(1, 2, figure=fig, width_ratios=[0.1, 2], wspace=0.02)
-        ax_tax = fig.add_subplot(gs[0, 0])
+        gs = gridspec.GridSpec(1, 4, figure=fig, 
+                            width_ratios=[0.15, 2, 0.05, 0.15], 
+                            wspace=0.02)
+        ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
+        ax_taxonomy = fig.add_subplot(gs[0, 4])
         ax_heatmap = None
 
     # ---- Bar Plot ----
-    # Y positions
     y_pos = np.arange(len(cluster_data))
     
-    # Plot bars
     bars = ax_bars.barh(
         y_pos,
         cluster_data['n_members'].values,
@@ -358,7 +312,6 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
         linewidth=0.5
     )
     
-    # Configure bars axis
     max_members = int(cluster_data['n_members'].max())
     nice_max = int(np.ceil(max_members * 1.05))
     step = 5 if nice_max <= 50 else 10
@@ -367,18 +320,15 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     ax_bars.set_xticks(np.arange(0, nice_max + 1, step))
     ax_bars.set_ylim(-0.5, len(cluster_data) - 0.5)
     ax_bars.set_xlabel('# of MAGs in species-level cluster', fontsize=11)
-
-    # Add grid
+    
     ax_bars.grid(axis='x', color='#e5e7eb', linewidth=0.5, zorder=0)
     ax_bars.set_axisbelow(True)
     
-    # Remove y-axis labels and ticks from bars
     ax_bars.set_yticks([])
     ax_bars.spines['left'].set_visible(False)
     ax_bars.spines['top'].set_visible(False)
     ax_bars.spines['right'].set_visible(False)
     
-    # Add member count labels on bars
     for i, (idx, row) in enumerate(cluster_data.iterrows()):
         count = int(row['n_members'])
         ax_bars.text(
@@ -391,28 +341,33 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
             fontweight='bold'
         )
     
-    # ---- Configure taxonomy axis ----
-    ax_tax.set_xlim(0, 1)
-    ax_tax.set_ylim(-0.5, len(cluster_data) - 0.5)
-    ax_tax.set_yticks(y_pos)
-    ax_tax.set_yticklabels(cluster_data[tax_level].values, fontsize=9)
-    ax_tax.set_xticks([])
-    ax_tax.invert_xaxis()
-    
-    # Remove spines
-    for spine in ax_tax.spines.values():
-        spine.set_visible(False)
-    
-    # ---- Heatmap - quality, quast, bakta ---- #
-    # Plot quality heatmap if available
-    if rep_quality_available and ax_heatmap is not None:
+    # ---- Configure sample names axis ----
+    ax_samples.set_xlim(0, 1)
+    ax_samples.set_ylim(-0.5, len(cluster_data) - 0.5)
+    ax_samples.set_yticks(y_pos)
+    ax_samples.set_yticklabels(cluster_data['representative_display'].values, fontsize=8)
+    ax_samples.set_xticks([])
+    ax_samples.invert_xaxis()
 
-        qual_colors = {
-            'High':   "#b64a4a",
-            'Medium': "#7f7f7f",
-            'Low':    "#86cbd5",
-            'Unknown':"#e5e7eb",
-        }
+    for spine in ax_samples.spines.values():
+        spine.set_visible(False)
+
+    # ---- Configure taxonomy axis ----
+    ax_taxonomy.set_xlim(0, 1)
+    ax_taxonomy.set_ylim(-0.5, len(cluster_data) - 0.5)
+    ax_taxonomy.set_yticks(y_pos)
+
+    tax_labels = [
+        f"{p}, {g}" for p, g in zip(cluster_data['phylum'], cluster_data['genus'])
+    ]
+    ax_taxonomy.set_yticklabels(tax_labels, fontsize=8)
+    ax_taxonomy.set_xticks([])
+
+    for spine in ax_taxonomy.spines.values():
+        spine.set_visible(False)
+        
+    # ---- Heatmap - representative values only ----
+    if rep_quality_available and ax_heatmap is not None:
 
         ax_heatmap.set_ylim(-0.5, len(cluster_data) - 0.5)
         ax_heatmap.set_yticks([])
@@ -420,13 +375,14 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
         ax_heatmap.spines['top'].set_visible(False)
         ax_heatmap.spines['right'].set_visible(False)
 
-        # --- define horizontal blocks (quality, size, gc,....) ---
         block_width = 1.0
         block_pos = {}
         x = 0
 
-        block_pos['quality'] = x
-        x += 1
+        # Completeness and Contamination blocks
+        block_pos['completeness'] = x
+        block_pos['contamination'] = x + 1
+        x += 2
 
         if quast_available:
             block_pos['size'] = x
@@ -437,7 +393,7 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
             block_pos['cds']  = x
             block_pos['rrna'] = x + 1
             x += 2
-            if 'avg_hypo_cds_ratio' in cluster_data.columns:
+            if 'rep_hypo_cds_ratio' in cluster_data.columns:
                 block_pos['hypo_ratio'] = x
                 x += 1
 
@@ -445,13 +401,29 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
         ax_heatmap.set_xlim(0, n_blocks)
         ax_heatmap.set_xticks([])
 
-        # ---- color norms and cmaps ----
-        size_norm = gc_norm = cds_norm = rrna_norm = hypo_ratio_norm = None
-        size_cmap = gc_cmap = cds_cmap = rrna_cmap = hypo_ratio_cmap = None
+        # --- Normalizing + Colormaps ---
+        comp_norm = cont_norm = size_norm = gc_norm = cds_norm = rrna_norm = hypo_ratio_norm = None
+        comp_cmap = cont_cmap = size_cmap = gc_cmap = cds_cmap = rrna_cmap = hypo_ratio_cmap = None
 
+        # Completeness and Contamination
+        if rep_quality_available:
+            comp_vals = cluster_data['rep_completeness'].values.astype(float)
+            cont_vals = cluster_data['rep_contamination'].values.astype(float)
+            comp_vals_valid = comp_vals[~np.isnan(comp_vals)]
+            cont_vals_valid = cont_vals[~np.isnan(cont_vals)]
+            
+            if len(comp_vals_valid) > 0:
+                comp_norm = Normalize(vmin=comp_vals_valid.min(), vmax=comp_vals_valid.max())
+                comp_cmap = cm.get_cmap('Greens')
+            
+            if len(cont_vals_valid) > 0:
+                cont_norm = Normalize(vmin=cont_vals_valid.min(), vmax=cont_vals_valid.max())
+                cont_cmap = cm.get_cmap('Reds')
+
+        # Quast (genome size, GC%)
         if quast_available:
-            size_vals = cluster_data['avg_genome_size'].values.astype(float)
-            gc_vals   = cluster_data['avg_gc'].values.astype(float)
+            size_vals = cluster_data['rep_genome_size'].values.astype(float)
+            gc_vals   = cluster_data['rep_gc'].values.astype(float)
             size_vals_valid = size_vals[~np.isnan(size_vals)]
             gc_vals_valid   = gc_vals[~np.isnan(gc_vals)]
             if len(size_vals_valid) > 0:
@@ -459,270 +431,222 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
                 size_cmap = cm.get_cmap('Blues')
             if len(gc_vals_valid) > 0:
                 gc_norm = Normalize(vmin=gc_vals_valid.min(), vmax=gc_vals_valid.max())
-                gc_cmap = cm.get_cmap('Greens')
+                gc_cmap = cm.get_cmap('Purples')
 
+        # Bakta (CDS, rRNA, hypotheticals ratio)
         if bakta_available:
-            cds_vals  = cluster_data['avg_cds'].values.astype(float)
-            rrna_vals = cluster_data['avg_rrna'].values.astype(float)
+            cds_vals  = cluster_data['rep_cds'].values.astype(float)
+            rrna_vals = cluster_data['rep_rrna'].values.astype(float)
             cds_vals_valid  = cds_vals[~np.isnan(cds_vals)]
             rrna_vals_valid = rrna_vals[~np.isnan(rrna_vals)]
             if len(cds_vals_valid) > 0:
                 cds_norm = Normalize(vmin=cds_vals_valid.min(), vmax=cds_vals_valid.max())
-                cds_cmap = cm.get_cmap('Purples')
+                cds_cmap = cm.get_cmap('Oranges')
             if len(rrna_vals_valid) > 0:
                 rrna_norm = Normalize(vmin=rrna_vals_valid.min(), vmax=rrna_vals_valid.max())
-                rrna_cmap = cm.get_cmap('Oranges')
-            # Hypotheticals/CDS ratio
-            if 'avg_hypo_cds_ratio' in cluster_data.columns:
-                hypo_ratio_vals = cluster_data['avg_hypo_cds_ratio'].values.astype(float)
+                rrna_cmap = cm.get_cmap('YlOrBr')
+            
+            if 'rep_hypo_cds_ratio' in cluster_data.columns:
+                hypo_ratio_vals = cluster_data['rep_hypo_cds_ratio'].values.astype(float)
                 hypo_ratio_vals_valid = hypo_ratio_vals[~np.isnan(hypo_ratio_vals)]
                 if len(hypo_ratio_vals_valid) > 0:
                     hypo_ratio_norm = Normalize(vmin=hypo_ratio_vals_valid.min(), vmax=hypo_ratio_vals_valid.max())
-                    hypo_ratio_cmap = cm.get_cmap('Reds')
+                    hypo_ratio_cmap = cm.get_cmap('RdPu')
 
-        # ---- draw rows ----
+        # Draw a row of colored blocks per cluster
         for i, row in cluster_data.iterrows():
-            # quality
-            q = row['ClusterQuality']
-            ax_heatmap.barh(
-                i,
-                block_width,
-                left=0,
-                height=0.7,
-                color=qual_colors.get(q, "#e5e7eb"),
-                edgecolor='white',
-                linewidth=0.5
-            )
+            # Completeness
+            if rep_quality_available and comp_norm is not None:
+                comp = row['rep_completeness']
+                col_comp = comp_cmap(comp_norm(comp)) if pd.notna(comp) else 'white'
+                ax_heatmap.barh(
+                    i, block_width, left=block_pos['completeness'],
+                    height=0.7, color=col_comp, edgecolor='white', linewidth=0.2
+                )
             
-            # genome size
+            # Contamination
+            if rep_quality_available and cont_norm is not None:
+                cont = row['rep_contamination']
+                col_cont = cont_cmap(cont_norm(cont)) if pd.notna(cont) else 'white'
+                ax_heatmap.barh(
+                    i, block_width, left=block_pos['contamination'],
+                    height=0.7, color=col_cont, edgecolor='white', linewidth=0.2
+                )
+
+            # QUAST
             if quast_available and size_norm is not None:
-                size = row['avg_genome_size']
+                size = row['rep_genome_size']
                 col_size = size_cmap(size_norm(size)) if pd.notna(size) else 'white'
                 ax_heatmap.barh(
-                    i,
-                    block_width,
-                    left=block_pos['size'],
-                    height=0.7,
-                    color=col_size,
-                    edgecolor='white',
-                    linewidth=0.2
+                    i, block_width, left=block_pos['size'],
+                    height=0.7, color=col_size, edgecolor='white', linewidth=0.2
                 )
 
-            # GC
             if quast_available and gc_norm is not None:
-                gc_val = row['avg_gc']
+                gc_val = row['rep_gc']
                 col_gc = gc_cmap(gc_norm(gc_val)) if pd.notna(gc_val) else 'white'
                 ax_heatmap.barh(
-                    i,
-                    block_width,
-                    left=block_pos['gc'],
-                    height=0.7,
-                    color=col_gc,
-                    edgecolor='white',
-                    linewidth=0.2
+                    i, block_width, left=block_pos['gc'],
+                    height=0.7, color=col_gc, edgecolor='white', linewidth=0.2
                 )
 
-            # CDS
+            # Bakta
             if bakta_available and cds_norm is not None:
-                cds = row['avg_cds']
+                cds = row['rep_cds']
                 col_cds = cds_cmap(cds_norm(cds)) if pd.notna(cds) else 'white'
                 ax_heatmap.barh(
-                    i,
-                    block_width,
-                    left=block_pos['cds'],
-                    height=0.7,
-                    color=col_cds,
-                    edgecolor='white',
-                    linewidth=0.2
-                )
-            
-            # rRNAs
-            if bakta_available and rrna_norm is not None:
-                rr = row['avg_rrna']
-                col_rr = rrna_cmap(rrna_norm(rr)) if pd.notna(rr) else 'white'
-                ax_heatmap.barh(
-                    i,
-                    block_width,
-                    left=block_pos['rrna'],
-                    height=0.7,
-                    color=col_rr,
-                    edgecolor='white',
-                    linewidth=0.2
-                )
-            
-            # Hypotheticals/CDS ratio
-            if bakta_available and 'hypo_ratio' in block_pos and hypo_ratio_norm is not None:
-                ratio = row['avg_hypo_cds_ratio']
-                col_ratio = hypo_ratio_cmap(hypo_ratio_norm(ratio)) if pd.notna(ratio) else 'white'
-                ax_heatmap.barh(
-                    i,
-                    block_width,
-                    left=block_pos['hypo_ratio'],
-                    height=0.7,
-                    color=col_ratio,
-                    edgecolor='white',
-                    linewidth=0.2
+                    i, block_width, left=block_pos['cds'],
+                    height=0.7, color=col_cds, edgecolor='white', linewidth=0.2
                 )
 
-        # Labels over heatmap
-        ax_heatmap.set_xlabel('')
-        label_y = len(cluster_data) - 0.5 + 0.5  # Etwas über der obersten Zeile
+            if bakta_available and rrna_norm is not None:
+                rr = row['rep_rrna']
+                col_rr = rrna_cmap(rrna_norm(rr)) if pd.notna(rr) else 'white'
+                ax_heatmap.barh(
+                    i, block_width, left=block_pos['rrna'],
+                    height=0.7, color=col_rr, edgecolor='white', linewidth=0.2
+                )
+            
+            if bakta_available and 'hypo_ratio' in block_pos and hypo_ratio_norm is not None:
+                ratio = row['rep_hypo_cds_ratio']
+                col_ratio = hypo_ratio_cmap(hypo_ratio_norm(ratio)) if pd.notna(ratio) else 'white'
+                ax_heatmap.barh(
+                    i, block_width, left=block_pos['hypo_ratio'],
+                    height=0.7, color=col_ratio, edgecolor='white', linewidth=0.2
+                )
+
+        # Vertical labels over each block
+        label_y = len(cluster_data) - 0.5 + 0.5
         
-        # Quality
         ax_heatmap.text(
-            block_pos['quality'] + 0.5,
-            label_y,
-            'Quality',
-            ha='center',
-            va='bottom',
-            fontsize=8,
-            rotation=90
+            block_pos['completeness'] + 0.5, label_y, 'Compl.',
+            ha='center', va='bottom', fontsize=8, rotation=90
+        )
+        ax_heatmap.text(
+            block_pos['contamination'] + 0.5, label_y, 'Cont.',
+            ha='center', va='bottom', fontsize=8, rotation=90
         )
         
-        # QUAST labels
         if quast_available:
             ax_heatmap.text(
-                block_pos['size'] + 0.5,
-                label_y,
-                'Genome\nsize',
-                ha='center',
-                va='bottom',
-                fontsize=8,
-                rotation=90
+                block_pos['size'] + 0.5, label_y, 'Size',
+                ha='center', va='bottom', fontsize=8, rotation=90
             )
             ax_heatmap.text(
-                block_pos['gc'] + 0.5,
-                label_y,
-                'GC %',
-                ha='center',
-                va='bottom',
-                fontsize=8,
-                rotation=90
+                block_pos['gc'] + 0.5, label_y, 'GC',
+                ha='center', va='bottom', fontsize=8, rotation=90
             )
         
-        # Bakta labels
         if bakta_available:
             ax_heatmap.text(
-                block_pos['cds'] + 0.5,
-                label_y,
-                'CDS',
-                ha='center',
-                va='bottom',
-                fontsize=8,
-                rotation=90
+                block_pos['cds'] + 0.5, label_y, 'CDS',
+                ha='center', va='bottom', fontsize=8, rotation=90
             )
             ax_heatmap.text(
-                block_pos['rrna'] + 0.5,
-                label_y,
-                'rRNA',
-                ha='center',
-                va='bottom',
-                fontsize=8,
-                rotation=90
+                block_pos['rrna'] + 0.5, label_y, 'rRNA',
+                ha='center', va='bottom', fontsize=8, rotation=90
             )
             
             if 'hypo_ratio' in block_pos:
                 ax_heatmap.text(
-                    block_pos['hypo_ratio'] + 0.5,
-                    label_y,
-                    'Hypo/\nCDS',
-                    ha='center',
-                    va='bottom',
-                    fontsize=8,
-                    rotation=90
+                    block_pos['hypo_ratio'] + 0.5, label_y, 'Hypo/\nCDS',
+                    ha='center', va='bottom', fontsize=8, rotation=90
                 )
-                
-        # ---- Legends and colorbars under heatmap ----
+
         pos = ax_heatmap.get_position()
         legend_y = pos.y0 - 0.15
 
-        # hight, width of colorbars
         cbar_h = 0.10
         cbar_w = 0.015
-        spacing = 0.05
+        spacing = 0.04
 
-        # Quality legend
-        legend_handles = [
-            Patch(color=qual_colors['High'],   label='High'),
-            Patch(color=qual_colors['Medium'], label='Medium'),
-            Patch(color=qual_colors['Low'],    label='Low'),
-            Patch(color=qual_colors['Unknown'],label='Unknown'),
-        ]
+        current_x = pos.x0 - 0.25
+        
+        # Colorbars
+        if rep_quality_available and comp_norm is not None:
+            ax_cbar_comp = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            comp_cbar = cm.ScalarMappable(norm=comp_norm, cmap=comp_cmap)
+            comp_cbar.set_array([])
+            cb1 = fig.colorbar(comp_cbar, cax=ax_cbar_comp, orientation="vertical")
+            cb1.ax.tick_params(labelsize=6)
+            cb1.set_label("Completeness (%)", fontsize=7, labelpad=1)
+            current_x += cbar_w + spacing
 
-        ax_leg_quality = fig.add_axes([
-            pos.x0,         # links
-            legend_y,       # y
-            0.12,           # Breite
-            cbar_h          # Höhe
-        ])
-
-        ax_leg_quality.axis("off")
-        ax_leg_quality.legend(
-            handles=legend_handles,
-            loc="center left",
-            frameon=False,
-            fontsize=7,
-            ncol=1,
-        )
-
-        # collect available scalar metrics for colorbars
-        cbar_specs = []
+        if rep_quality_available and cont_norm is not None:
+            ax_cbar_cont = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            cont_cbar = cm.ScalarMappable(norm=cont_norm, cmap=cont_cmap)
+            cont_cbar.set_array([])
+            cb2 = fig.colorbar(cont_cbar, cax=ax_cbar_cont, orientation="vertical")
+            cb2.ax.tick_params(labelsize=6)
+            cb2.set_label("Contamination (%)", fontsize=7, labelpad=1)
+            current_x += cbar_w + spacing
 
         if quast_available and size_norm is not None:
-            cbar_specs.append(("size", size_norm, size_cmap, "Avg genome size (bp)"))
-        if quast_available and gc_norm is not None:
-            cbar_specs.append(("gc", gc_norm, gc_cmap, "Avg GC (%)"))
-        if bakta_available and cds_norm is not None:
-            cbar_specs.append(("cds", cds_norm, cds_cmap, "Avg CDS"))
-        if bakta_available and rrna_norm is not None:
-            cbar_specs.append(("rrna", rrna_norm, rrna_cmap, "Avg rRNAs"))
-        if bakta_available and hypo_ratio_norm is not None:
-            cbar_specs.append(
-                ("hypo_ratio", hypo_ratio_norm, hypo_ratio_cmap, "Hypo/CDS ratio")
-            )
+            ax_cbar_size = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            size_cbar = cm.ScalarMappable(norm=size_norm, cmap=size_cmap)
+            size_cbar.set_array([])
+            cb3 = fig.colorbar(size_cbar, cax=ax_cbar_size, orientation="vertical")
+            cb3.ax.tick_params(labelsize=6)
+            cb3.set_label("Genome size (bp)", fontsize=7, labelpad=1)
+            current_x += cbar_w + spacing
 
-        for idx, (_, norm, cmap, label) in enumerate(cbar_specs):
-            ax_cbar = fig.add_axes(
-                [
-                    pos.x0 + 0.08 + idx * (cbar_w + spacing),
-                    legend_y,
-                    cbar_w,
-                    cbar_h,
-                ]
-            )
-            sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-            sm.set_array([])
-            cb = fig.colorbar(sm, cax=ax_cbar, orientation="vertical")
-            cb.ax.tick_params(labelsize=6)
-            cb.set_label(label, fontsize=7, labelpad=1)
-    
+        if quast_available and gc_norm is not None:
+            ax_cbar_gc = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            gc_cbar = cm.ScalarMappable(norm=gc_norm, cmap=gc_cmap)
+            gc_cbar.set_array([])
+            cb4 = fig.colorbar(gc_cbar, cax=ax_cbar_gc, orientation="vertical")
+            cb4.ax.tick_params(labelsize=6)
+            cb4.set_label("GC (%)", fontsize=7, labelpad=1)
+            current_x += cbar_w + spacing
+
+        if bakta_available and cds_norm is not None:
+            ax_cbar_cds = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            cds_cbar = cm.ScalarMappable(norm=cds_norm, cmap=cds_cmap)
+            cds_cbar.set_array([])
+            cb5 = fig.colorbar(cds_cbar, cax=ax_cbar_cds, orientation="vertical")
+            cb5.ax.tick_params(labelsize=6)
+            cb5.set_label("CDS", fontsize=7, labelpad=1)
+            current_x += cbar_w + spacing
+
+        if bakta_available and rrna_norm is not None:
+            ax_cbar_rrna = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            rrna_cbar = cm.ScalarMappable(norm=rrna_norm, cmap=rrna_cmap)
+            rrna_cbar.set_array([])
+            cb6 = fig.colorbar(rrna_cbar, cax=ax_cbar_rrna, orientation="vertical")
+            cb6.ax.tick_params(labelsize=6)
+            cb6.set_label("rRNAs", fontsize=7, labelpad=1)
+            current_x += cbar_w + spacing
+        
+        if bakta_available and hypo_ratio_norm is not None:
+            ax_cbar_hypo = fig.add_axes([current_x, legend_y, cbar_w, cbar_h])
+            hypo_cbar = cm.ScalarMappable(norm=hypo_ratio_norm, cmap=hypo_ratio_cmap)
+            hypo_cbar.set_array([])
+            cb7 = fig.colorbar(hypo_cbar, cax=ax_cbar_hypo, orientation="vertical")
+            cb7.ax.tick_params(labelsize=6)
+            cb7.set_label("Hypo/CDS ratio", fontsize=7, labelpad=1)
+
     # ---- Info box ----
-    # Calculate statistics
     total_mags = len(drep)
-    total_clusters = drep['primary_cluster'].nunique()
-    mags_in_top_clusters = drep[drep['primary_cluster'].isin(cluster_data['primary_cluster'])].shape[0]
+    mags_in_top_clusters = drep[drep['secondary_cluster'].isin(cluster_data['secondary_cluster'])].shape[0]
     
-    # Create info text
     info_text = (
         f"Total MAGs: {total_mags}\n"
-        f"Dereplicated (representatives): {total_clusters}\n"
         f"Total clusters: {total_clusters}\n"
-        f"MAGs in top {top_n} clusters: {mags_in_top_clusters} "
+        f"MAGs in top {top_n}: {mags_in_top_clusters} "
         f"({mags_in_top_clusters/total_mags*100:.1f}%)"
     )
     
-    # Add text box in figure coordinates
     fig.text(
-        0.02, - 0.05,
+        0.02, 0.02,
         info_text,
-        fontsize=9,
+        fontsize=10,
         verticalalignment='bottom',
         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3, pad=0.5),
         family='monospace'
     )
 
     plt.suptitle(
-        f'Top {top_n} species-level clusters by MAG count (by {tax_level})',
+        f'Top {top_n} species-level clusters by MAG count',
         fontsize=13,
         y=0.98,
         fontweight='bold'

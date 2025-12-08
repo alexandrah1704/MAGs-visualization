@@ -10,6 +10,7 @@ from matplotlib import gridspec
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.patches import Rectangle
 from id_normalizer import normalize_genome_id
+from pandas.api.types import is_bool_dtype
 
 # ---- Tax and ID processing ----
 def extract_rank(tax, rank: str):
@@ -60,8 +61,8 @@ def process_metadata_column(meta_aligned, meta_col, meta_bin_width=5.0, palette_
          "#e5e7eb", "#10b981", "#facc15", "#64748b", "#fb7185",
          "#0ea5e9", "#a3e635", "#fbbf24", "#f97373", "#4b5563"],
         # Palette 1: reds/yellows/browns
-        ["#fbbf24", "#f59e0b", "#ea580c", "#dc2626", "#b91c1c",
-         "#d97706", "#ca8a04", "#92400e", "#78350f","#f87171",
+        ["#b91c1c", "#fbbf24", "#d97706", "#ea580c", "#dc2626", "#b91c1c",
+         "#f59e0b", "#ca8a04", "#92400e", "#78350f","#f87171",
          "#fb923c", "#fde047", "#ef4444", "#c2410c""#ea580c",],
         # Palette 2: purples/pinks/teals
         ["#8b5cf6", "#d946ef", "#ec4899", "#06b6d4", "#0891b2",
@@ -80,8 +81,39 @@ def process_metadata_column(meta_aligned, meta_col, meta_bin_width=5.0, palette_
     base_palette = palettes[palette_index % len(palettes)]
     
     unknown_label = f"Unknown {meta_col}"
+
+    raw = meta_aligned.dropna()
+
+    bool_like = False    
     meta_num = pd.to_numeric(meta_aligned, errors="coerce")
     frac_numeric = meta_num.notna().mean()
+
+    if is_bool_dtype(raw):
+        bool_like = True
+    else:
+        # Werte als Strings normieren
+        lowered = {str(v).strip().lower() for v in pd.unique(raw)}
+        bool_tokens = {"true", "false", "yes", "no", "0", "1"}
+        if lowered and lowered.issubset(bool_tokens):
+            bool_like = True
+
+    if bool_like:
+        # Behandle diese Spalte als kategorial (z.B. TRUE/FALSE)
+        meta_cat = (
+            meta_aligned.astype("string")
+            .fillna(unknown_label)
+            .replace("", unknown_label)
+        )
+        meta_category_per_sample = meta_cat.to_dict()
+        meta_title = meta_col  # oder z.B. f"{meta_col} (yes/no)"
+
+        categories = list(sorted(set(meta_category_per_sample.values())))
+        meta_color_per_category = {
+            cat: base_palette[i % len(base_palette)]
+            for i, cat in enumerate(categories)
+        }
+        return meta_category_per_sample, meta_color_per_category, meta_title
+
 
     if frac_numeric >= 0.8 and meta_num.notna().sum() > 0:
         # numeric (temperature)
@@ -172,7 +204,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
     cov = cov.loc[:, ~cov.columns.duplicated(keep="first")]
 
-    sample_cols_raw = [c for c in cov.columns if "Relative Abundance (%)" in c]
+    sample_cols_raw = [c for c in cov.columns if c not in ["Genome", "user_genome"]]
 
     cov = cov[["Genome"] + sample_cols_raw].copy()
     cov["Genome"] = cov["Genome"].astype(str)
@@ -223,7 +255,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
 
     # ---- Process all metadata columns ----
-    all_metadata = []  # List of dicts: {category_map, color_map, title}
+    all_metadata = []
     
     if metadata_df is not None and meta_cols is not None:
         for idx, meta_col in enumerate(meta_cols):
@@ -267,8 +299,8 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
     # Calculate width ratios: legends | spacer | metadata bars | spacer | heatmap | spacer | right bars
     n_meta_cols = len(all_metadata)
-    meta_bars_width = n_meta_cols * 0.15 if n_meta_cols > 0 else 0.0
-    width_ratios = [2.0, 0.2, meta_bars_width, 2.0, 8.0, 0.2, 2.0] if n_meta_cols > 0 else [3.0, 0.5, 8.0, 0.2, 2.0]
+    meta_bars_width = n_meta_cols * 0.35 if n_meta_cols > 0 else 0.0
+    width_ratios = [2.0, 0.45, meta_bars_width, 1.5, 8.0, 0.2, 2.0] if n_meta_cols > 0 else [3.0, 0.5, 8.0, 0.2, 2.0]
     
     fig = plt.figure(figsize=(max(10, safe_cols * 0.62 + meta_bars_width), max(8, safe_rows * 0.32)))
 
@@ -288,19 +320,31 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
             3, 5, figure=fig,
             height_ratios=[1.0, 0.0, 8.0],
             width_ratios=width_ratios,
-            wspace=0.05, hspace=0.18
+            wspace=0.05, hspace=0.12
         )
         ax_top = fig.add_subplot(gs[0, 2])
         ax_heat = fig.add_subplot(gs[2, 2])
         ax_right = fig.add_subplot(gs[2, 4])
         ax_meta_bars = None
 
-    # left column split into abundance legend & weather legend
-    n_meta_legends = len(all_metadata) if all_metadata else 1
-    left_height_ratios = [3.0] + [2.0] * n_meta_legends
-    left = gs[2, 0].subgridspec(1 + n_meta_legends, 1, height_ratios=left_height_ratios, hspace=0.35)
+    # left column split into abundance legend & metadata legend
+    n_meta_legends = len(all_metadata) if all_metadata else 0
+
+    abund_height = 2.0 if n_meta_legends == 0 else 4.0
+    meta_heights = []
+
+    for meta_info in all_metadata:
+        num_cats = len(meta_info["color_map"])
+        meta_heights.append( max(3.0, num_cats * 0.25) )
+
+    left_height_ratios = [abund_height] + meta_heights
+
+    left = gs[2, 0].subgridspec(1 + len(all_metadata), 1,
+                                height_ratios=left_height_ratios,
+                                hspace=0.35)
+
     ax_abund_legend = fig.add_subplot(left[0, 0])
-    ax_meta_legends = [fig.add_subplot(left[i+1, 0]) for i in range(n_meta_legends)]
+    ax_meta_legends = [fig.add_subplot(left[i+1, 0]) for i in range(n_meta_legends)] if n_meta_legends > 0 else []
 
     # ---- heatmap ----
     im = ax_heat.imshow(heat.values, aspect="auto", interpolation="nearest", cmap=cmap, norm=norm)
@@ -315,7 +359,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     ax_heat.set_xlim(-0.5, safe_cols - 0.5)
     ax_heat.set_ylim(safe_rows - 0.5, -0.5)
 
-    # Add labels
+    # Labels
     ax_heat.set_xticks(np.arange(n_cols))
     ax_heat.set_xticklabels(heat.columns, rotation=45, ha="right", fontsize=9)
     ax_heat.set_yticks(np.arange(n_rows))
@@ -343,17 +387,19 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
             ax_meta.set_title(meta_info['title'], fontsize=10, pad=6)
             ax_meta.title.set_x(0.15)
 
+            row_height = 1.4
+
             cats = list(meta_info['color_map'].keys())
             ax_meta.set_xlim(0, 1)
-            ax_meta.set_ylim(0, len(cats))
+            ax_meta.set_ylim(0, len(cats) * row_height)
 
             for i, cat in enumerate(reversed(cats)):
-                y = i
+                y = i * row_height
                 color = meta_info['color_map'][cat]
                 ax_meta.add_patch(
-                    Rectangle((0.05, y), 0.25, 1.0, color=color, ec="#888888", linewidth=0.5)
+                    Rectangle((0.05, y), 0.25, row_height, color=color, ec="#888888", linewidth=0.5)
                 )
-                ax_meta.text(0.35, y + 0.5, str(cat), va="center", fontsize=9)
+                ax_meta.text(0.35, y + row_height/2, str(cat), va="center", fontsize=9)
             ax_meta.axis("off")
         
     if not all_metadata:
@@ -364,6 +410,8 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     if ax_meta_bars is not None and all_metadata:
         ax_meta_bars.set_xlim(-0.5, n_meta_cols - 0.5)
         ax_meta_bars.set_ylim(n_rows - 0.5, -0.5)
+
+        bar_width = 0.7
         
         for col_idx, meta_info in enumerate(all_metadata):
             category_map = meta_info['category_map']
@@ -374,15 +422,17 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
                 color = color_map.get(category, "#cccccc")
                 
                 ax_meta_bars.add_patch(
-                    Rectangle((col_idx - 0.45, row_idx - 0.45), 0.9, 0.9, 
-                             color=color, ec="#888888", linewidth=0.3)
-                )
+                    Rectangle((col_idx - bar_width/2, row_idx - 0.45), bar_width, 0.9, 
+                             color=color, ec="#888888", linewidth=0.3))
         
-        ax_meta_bars.set_xticks([])
+        ax_meta_bars.set_xticks(np.arange(n_meta_cols))
+        ax_meta_bars.set_xticklabels([m['title'] for m in all_metadata], 
+                                      rotation=45, ha="right", fontsize=9)
         ax_meta_bars.set_yticks([])
-        ax_meta_bars.tick_params(axis='both', which='both', length=0, labelleft=False, labelbottom=False)
+        ax_meta_bars.tick_params(axis='both', which='both', length=0, labelleft=False)
+        ax_meta_bars.xaxis.set_label_position('bottom')
+        ax_meta_bars.xaxis.tick_bottom()
 
-        # Remove spines
         for spine in ax_meta_bars.spines.values():
             spine.set_visible(False)
 
@@ -404,8 +454,6 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
         
         yticks = np.arange(0, yceil + 1, 1)
         ax_top.set_yticks(yticks)
-        
-        # Draw horizontal reference line at 0 only
         ax_top.axhline(0, color="#888888", linewidth=0.8)
         if yceil >= 2:
             ax_top.axhline(2, color="#cccccc", linewidth=0.5, linestyle="--")
@@ -466,7 +514,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     ax_right.spines["bottom"].set_visible(False)
 
     plt.suptitle(f"MAG distribution: samples × {rank}", y=0.98, fontsize=12)
-    out_png = os.path.join(output_path, f"heatmap_with_bars.{fmt}")
+    out_png = os.path.join(output_path, f"heatmap_with_bars_{rank}_{meta_cols}.{fmt}")
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
     plt.close()
     return out_png

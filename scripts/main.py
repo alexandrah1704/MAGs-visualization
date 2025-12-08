@@ -593,7 +593,7 @@ if __name__ == '__main__':
         dfs["gtdb"],
         args.output,
         rank=tax_rank,
-        metadata_df=dfs.get("metadata_heatmap_new"),
+        metadata_df=dfs.get("metadata"),
         meta_cols=args.meta_cols,
         meta_bin_width=args.meta_bin_width,
         fmt=args.format,
