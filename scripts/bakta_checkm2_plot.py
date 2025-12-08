@@ -32,36 +32,58 @@ def _coerce_bakta_to_wide(bakta_raw: pd.DataFrame) -> pd.DataFrame:
     - columns = bakta features
     """
     df = bakta_raw.copy()
+    wide = None
 
-    if "Annotation" in df.columns:
+    feature_names = {
+        "cdss", "trnas", "rrnas", "hypotheticals",
+        "crispr arrays", "gaps", "ncrna regions", "ncrnas",
+        "orics", "orits", "orivs"
+    }
+    if any(str(x).strip().lower() in feature_names for x in df.index[:10]):
+        drop_mask = df.index.to_series().astype(str).str.strip().str.lower().isin(
+            {"#key", "key", "annotation"}
+        )
+        df2 = df[~drop_mask]
+        wide = df2.T
+
+    elif "Annotation" in df.columns:
         wide = df.set_index("Annotation").T
+
+    # Case: 'Annotation'
     elif (df.index.name is not None) and (str(df.index.name).strip().lower() == "annotation"):
         wide = df.T
+
+    # Case: first column = typical feature name
     elif df.shape[1] >= 2 and any(
-        str(x).strip().lower() in {"cdss", "trnas", "rrnas", "hypotheticals", "crispr arrays", "gaps"}
+        str(x).strip().lower() in feature_names
         for x in df.iloc[:, 0].head(10)
     ):
         df = df.rename(columns={df.columns[0]: "Annotation"})
         wide = df.set_index("Annotation").T
+
+    # *_Count
     elif (df.columns.to_series().astype(str)
               .str.contains(r"_count$", case=False, regex=True).mean() > 0.5):
-        wide = df.T 
+        wide = df.T
     elif (df.index.to_series().astype(str)
               .str.contains(r"_count$", case=False, regex=True).mean() > 0.5):
         wide = df
-    else:
-        print("[WARN] Couldn't detect Bakta orientation.")
+
+    # Fallback
+    if wide is None:
+        print("[WARN] Couldn't detect Bakta orientation. Using raw table.")
         wide = df
 
+    # Genome-IDs normalizing
     norm = normalize_id_series(wide.index.to_series())
     wide.index = pd.Index(norm.values, name="Genome")
 
-    # clean feature names
     wide.columns = wide.columns.str.strip()
     for c in wide.columns:
         wide[c] = pd.to_numeric(wide[c], errors="coerce")
 
     return wide
+
 
 def stable_jitter(keys: pd.Series, scale=0.06) -> np.ndarray:
     """ Deterministic jitter """
@@ -95,11 +117,26 @@ def bakta_annotation_plot(dfs: dict, output_dir: str, metrics=None,
     compl_col = _first_present_col(checkm2, ["Completeness", "completeness", "CheckM2 completeness"])
     cont_col = _first_present_col(checkm2, ["Contamination", "contamination", "CheckM2 contamination"])
 
+    # passende ID-Spalte für CheckM2 suchen (analog wie im dRep-Code)
+    if checkm2.index.name and str(checkm2.index.name).strip().lower() not in ("", "index"):
+        id_series = checkm2.index.to_series()
+    else:
+        id_col = _first_present_col(
+            checkm2,
+            ["Name", "Bin Id", "Bin_Id", "Bin", "Genome", "user_genome"]
+        )
+        if id_col is None:
+            raise ValueError(
+                "Could not find genome ID column in CheckM2 table "
+                "(tried Name / Bin Id / Bin / Genome / user_genome)."
+            )
+        id_series = checkm2[id_col]
+
+    checkm2["__id__"] = id_series.astype(str).apply(normalize_id_universal)
+
     # build normalized join keys
     bakta = bakta.reset_index().rename(columns={"Genome": "__id__"})
     bakta["__id__"] = bakta["__id__"].apply(normalize_id_universal)
-    
-    checkm2["__id__"] = checkm2.index.to_series().apply(normalize_id_universal)
 
     # --- Choose features ---
     if metrics is None:
@@ -126,9 +163,6 @@ def bakta_annotation_plot(dfs: dict, output_dir: str, metrics=None,
     checkm2_sub = checkm2[cols_keep]
 
     merged = bakta_sub.merge(checkm2_sub, on="__id__", how="inner")
-    if merged.empty:
-        print("[WARN] No overlap between Bakta and CheckM2")
-        return
     
     # ---- calculate Ratios: Metric / cdss ----
     ratio_cols = {}
