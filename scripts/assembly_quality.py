@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from heatmap import extract_rank
 from id_normalizer import normalize_genome_id
+from pandas.api.types import is_bool_dtype
 
 
 def normalize_id_universal(s: str) -> str:
@@ -198,52 +199,88 @@ def assembly_quality_plot(dfs: dict, output_dir: str, metrics=None,
             color_by_effective = None
         else:
             metadata = dfs["metadata"].copy()
-            
+
             if "user_genome" in metadata.columns and metadata.index.name != "user_genome":
                 metadata.set_index("user_genome", inplace=True)
-            
-            metadata = metadata.rename_axis("orig_id").reset_index()
-            metadata["__id__"] = metadata["orig_id"].astype(str).apply(normalize_id_universal)
-            
+
+            meta_index_str = metadata.index.astype(str)
+            has_bin = meta_index_str.str.contains("_bin_").any()
+
+            def sample_key(s: str):
+                """SRR-Level-Schlüssel: normalisieren und Stamm vor erstem '_' oder '.'."""
+                if pd.isna(s):
+                    return s
+                s_norm = normalize_id_universal(str(s))
+                return re.split(r'[_\.]', s_norm, 1)[0]
+
+            if has_bin:
+                metadata["__key__"] = metadata.index.to_series().map(normalize_id_universal)
+                merged["__key__"]   = merged["__id__"].astype(str).map(normalize_id_universal)
+            else:
+                metadata["__key__"] = metadata.index.to_series().map(sample_key)
+                merged["__key__"]   = merged["__id__"].astype(str).map(sample_key)
+
             if meta_col not in metadata.columns:
                 print(f"[WARN] Column '{meta_col}' not found in metadata → available: {metadata.columns.tolist()}")
                 color_by_effective = None
             else:
                 merged = merged.merge(
-                    metadata[["__id__", meta_col]],
-                    on="__id__",
+                    metadata[["__key__", meta_col]],
+                    on="__key__",
                     how="left"
                 )
-                
-                # detect whether meta column is numeric or categorial
-                meta_num = pd.to_numeric(merged[meta_col], errors="coerce")
-                frac_numeric = meta_num.notna().mean()
-                
-                if frac_numeric >= 0.8:
-                    # group into bins (temperature)
-                    bin_width = 5.0
-                    vmin = np.floor(meta_num.min() / bin_width) * bin_width
-                    vmax = np.ceil(meta_num.max() / bin_width) * bin_width
-                    if vmin == vmax:
-                        vmax = vmin + bin_width
-                    
-                    bins_meta = np.arange(vmin, vmax + bin_width, bin_width)
-                    labels_meta = [
-                        f"{int(left)}–{int(right)}"
-                        for left, right in zip(bins_meta[:-1], bins_meta[1:])
-                    ]
-                    
-                    merged[meta_col] = pd.cut(
-                        meta_num,
-                        bins=bins_meta,
-                        labels=labels_meta,
-                        include_lowest=True
-                    ).astype("object").fillna(f"Unknown {meta_col}")
-                    
+
+                # ---- Bool / numeric / categorical Erkennung ----
+                raw = merged[meta_col]
+                raw_non_na = raw.dropna()
+                unknown_label = f"Unknown {meta_col}"
+
+                bool_like = False
+                if is_bool_dtype(raw_non_na):
+                    bool_like = True
                 else:
-                    # categorical (weather)
-                    merged[meta_col] = merged[meta_col].astype("string").fillna(f"Unknown {meta_col}")
-                
+                    lowered = {str(v).strip().lower() for v in pd.unique(raw_non_na)}
+                    bool_tokens = {"true", "false", "yes", "no", "0", "1"}
+                    if lowered and lowered.issubset(bool_tokens):
+                        bool_like = True
+
+                if bool_like:
+                    merged[meta_col] = (
+                        raw.astype("string")
+                           .fillna(unknown_label)
+                           .replace("", unknown_label)
+                    )
+                else:
+                    meta_num = pd.to_numeric(raw, errors="coerce")
+                    frac_numeric = meta_num.notna().mean()
+
+                    if frac_numeric >= 0.8 and meta_num.notna().sum() > 0:
+                        # numeric (Temperature)
+                        bin_width = 5.0
+                        vmin = np.floor(meta_num.min() / bin_width) * bin_width
+                        vmax = np.ceil(meta_num.max() / bin_width) * bin_width
+                        if vmin == vmax:
+                            vmax = vmin + bin_width
+                        
+                        bins_meta = np.arange(vmin, vmax + bin_width, bin_width)
+                        labels_meta = [
+                            f"{int(left)}–{int(right)}"
+                            for left, right in zip(bins_meta[:-1], bins_meta[1:])
+                        ]
+                        
+                        merged[meta_col] = pd.cut(
+                            meta_num,
+                            bins=bins_meta,
+                            labels=labels_meta,
+                            include_lowest=True
+                        ).astype("object").fillna(unknown_label)
+                    else:
+                        merged[meta_col] = (
+                            raw.astype("string")
+                               .fillna(unknown_label)
+                               .replace("", unknown_label)
+                        )
+
                 top_n_meta = 10
                 counts = merged[meta_col].value_counts()
                 if len(counts) > top_n_meta:
@@ -251,7 +288,6 @@ def assembly_quality_plot(dfs: dict, output_dir: str, metrics=None,
                     merged[meta_col] = merged[meta_col].apply(
                         lambda x: x if x in top_cats else "Others"
                     )
-
 
     # ---- convert to long format ----
     id_vars = ["__id__", "Completeness_bin"]
