@@ -134,6 +134,7 @@ def assembly_quality_plot(dfs: dict, output_dir: str, metrics=None,
     color_by_effective = color_by
     quality_col = None
     tax_col = None
+    tax_count_map: dict[str, int] | None = None
 
     # a) color_by: quality - hq, mq, lq
     if color_by_effective == "quality" and cont_col is not None:
@@ -191,6 +192,7 @@ def assembly_quality_plot(dfs: dict, output_dir: str, metrics=None,
                 merged[tax_col] = merged[tax_col].apply(
                     lambda x: x if x in top_taxa else "Others"
                 )
+                tax_count_map = merged[tax_col].value_counts().to_dict()
     
     # c) color_by: metadata
     if color_by_effective == "meta":
@@ -395,20 +397,30 @@ def assembly_quality_plot(dfs: dict, output_dir: str, metrics=None,
         # Legend
         if legend_title:
             handles = []
-            for lab in categories_color:
+
+            legend_labels = categories_color
+
+            if color_by_effective == "tax" and tax_col and tax_count_map is not None:
+                legend_labels = [
+                    f"{lab} ({tax_count_map.get(lab, 0)})"
+                    for lab in categories_color
+                ]
+
+            for lab, disp_lab in zip(categories_color, legend_labels):
                 pt = plt.Line2D(
-                    [], [], marker="o", linestyle="", color=color_map[lab], label=lab
+                    [], [], marker="o", linestyle="", color=color_map[lab],
+                    label=disp_lab, markersize=6
                 )
                 handles.append(pt)
 
             ax.legend(
                 handles,
-                categories_color,
+                legend_labels,
                 title=legend_title,
                 loc="upper center",
                 bbox_to_anchor=(0.5, -0.15),
                 frameon=False,
-                ncol=min(3, len(categories_color)),
+                ncol=min(3, len(legend_labels)),
                 fontsize=8,
                 title_fontsize=9,
             )
