@@ -198,7 +198,15 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     cov = cov.loc[:, ~cov.columns.duplicated(keep="first")]
 
     if "Genome" not in cov.columns:
-        cov = cov.reset_index().rename(columns={cov.columns[0]: "Genome"})
+        if cov.index.name == "Genome":
+            cov = cov.reset_index()
+        else:
+            cov = cov.reset_index()
+            old_name = cov.columns[0]
+            if old_name != "Genome":
+                cov = cov.rename(columns={old_name: "Genome"})
+    else:
+        pass
 
     cov = cov.loc[:, ~cov.columns.duplicated(keep="first")]
 
@@ -228,7 +236,10 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
             .pivot(index="sample", columns=rank, values="abundance")
             .fillna(0.0))
 
-    # sort taxa columns by total abundance;'Unnamed' to the end
+    sample_labels = [c for c in cov.columns if c not in ["Genome", "user_genome"]]
+    heat = heat.reindex(index=sample_labels, fill_value=0.0)
+
+    # sort taxa columns by total abundance; 'Unclassified'
     cols = heat.sum(axis=0).sort_values(ascending=False).index.tolist()
     if "Unclassified" in cols:
         cols = [c for c in cols if c != "Unclassified"] + ["Unclassified"]
@@ -296,14 +307,14 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # Calculate width ratios: legends | spacer | metadata bars | spacer | heatmap | spacer | right bars
     n_meta_cols = len(all_metadata)
     meta_bars_width = n_meta_cols * 0.50 if n_meta_cols > 0 else 0.0
-    width_ratios = [4.5, 1.8, meta_bars_width + 0.5, 4.5, 10.0, 0.3, 2.5] if n_meta_cols > 0 else [3.5, 0.6, 8.0, 0.3, 2.5]
+    width_ratios = [2.0, 1.0, meta_bars_width + 0.5, 1.5, 10.0, 0.3, 2.5] if n_meta_cols > 0 else [3.5, 0.6, 8.0, 0.3, 2.5]
     
     fig = plt.figure(figsize=(max(12, safe_cols * 0.80 + meta_bars_width), max(7, safe_rows * 0.35 + 1.5)))
 
     if n_meta_cols > 0:
         gs = gridspec.GridSpec(
             3, 7, figure=fig,
-            height_ratios=[0.5, 0.0, 8.0],
+            height_ratios=[1.0, 0.0, 8.0],
             width_ratios=width_ratios,
             wspace=0.10, hspace=0.20
         )
@@ -314,7 +325,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     else:
         gs = gridspec.GridSpec(
             3, 5, figure=fig,
-            height_ratios=[0.5, 0.0, 8.0],
+            height_ratios=[1.0, 0.0, 8.0],
             width_ratios=width_ratios,
             wspace=0.10, hspace=0.25
         )
