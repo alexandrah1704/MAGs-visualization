@@ -5,6 +5,19 @@
 
 ---
 
+## Install
+
+With conda/mamba:
+
+```
+conda env create -f environment.yml
+conda activate mags
+```
+
+---
+
+## What is this tool ?
+
 This tool generates a variety of visualizations for MAGs, including:
 
 - Taxonomic sankey diagrams
@@ -202,4 +215,6 @@ python scripts/main.py \
 -o new-test-plots \
 --top_n 30
 ```
+
+
 
