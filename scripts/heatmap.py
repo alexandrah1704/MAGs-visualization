@@ -169,7 +169,20 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     present_threshold: float = 0.0, top_bar_spacing: float = 1.0,
     top_bar_width: float = 0.90, rank: str = "phylum",
     metadata_df: pd.DataFrame | None = None, meta_cols: str | None = None,
-    meta_bin_width: float = 5.0, fmt: str = "png"):
+    meta_bin_width: float = 5.0, fmt: str = "png",
+    # Layout parameters
+    top_bar_height: float = 0.7,
+    hspace: float = 0.25,
+    heatmap_width: float = 11.0,
+    spacer_legend: float = 0.3,
+    spacer_meta: float = 2.0,
+    spacer_heatmap: float = 0.10,
+    legend: float = 3.5,
+    meta_bar_add: float = 1.5,
+    top_bar_spacer: float = 0.0,
+    max_col: int = 10,
+    log_top: bool = True,
+    ):
 
     """
     Combined visualization:
@@ -239,10 +252,27 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     sample_labels = [c for c in cov.columns if c not in ["Genome", "user_genome"]]
     heat = heat.reindex(index=sample_labels, fill_value=0.0)
 
-    # sort taxa columns by total abundance; 'Unclassified'
+    # sort taxa columns by total abundance
     cols = heat.sum(axis=0).sort_values(ascending=False).index.tolist()
-    if "Unclassified" in cols:
-        cols = [c for c in cols if c != "Unclassified"] + ["Unclassified"]
+
+    # ensure Unclassified is always last (optional)
+    has_unclassified = "Unclassified" in cols
+    classified = [c for c in cols if c != "Unclassified"]
+    unclassified = ["Unclassified"] if has_unclassified else []
+
+    # ---- Top-k + Others ----
+    if max_col is not None and max_col > 0 and len(classified) > max_col:
+        top = classified[:max_col]
+        rest = classified[max_col:]
+
+        heat["Others"] = heat[rest].sum(axis=1)
+        heat = heat.drop(columns=rest)
+
+        # column order: top + Others + Unclassified
+        cols = top + ["Others"] + unclassified
+    else:
+        cols = classified + unclassified
+
     heat = heat.loc[:, cols]
 
     n_rows, n_cols = heat.shape
@@ -252,7 +282,24 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
                      .nunique()
                      .reindex(heat.columns)
                      .fillna(0).astype(int))
-    top_vals = mags_per_rank.replace(0, np.nan).apply(np.log10)
+    
+    # If we created "Others", compute its MAG count too
+    if "Others" in heat.columns:
+        top_set = set([c for c in heat.columns if c not in ("Others", "Unclassified")])
+
+        # all ranks present in merged excluding selected top + Unclassified
+        merged_ranks = merged[rank].astype(str)
+        other_mask = ~merged_ranks.isin(top_set) & (merged_ranks != "Unclassified")
+
+        mags_per_rank.loc["Others"] = merged.loc[other_mask, "Genome"].nunique()
+
+    if log_top:
+        top_vals = mags_per_rank.replace(0, np.nan).apply(np.log10)
+        y_label = "log$_{10}$(MAGs / rank)"
+    else:
+        top_vals = mags_per_rank.astype(float)
+        y_label = "MAGs / rank"
+
     if top_vals.isna().all():
         top_vals = pd.Series([0] * len(mags_per_rank), index=mags_per_rank.index)
 
@@ -298,7 +345,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     ]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(boundaries, cmap.N, clip=True)
-    bin_labels = ["0", "1–2", "2–4", "4–8", "8–16", "16–40", "40–60", "60–80", ">80"]
+    bin_labels = ["0-1", "1–2", "2–4", "4–8", "8–16", "16–40", "40–60", "60–80", ">80"]
 
     # ---- layout ----
     safe_cols = max(1, n_cols)
@@ -307,16 +354,16 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # Calculate width ratios: legends | spacer | metadata bars | spacer | heatmap | spacer | right bars
     n_meta_cols = len(all_metadata)
     meta_bars_width = n_meta_cols * 0.50 if n_meta_cols > 0 else 0.0
-    width_ratios = [2.0, 1.0, meta_bars_width + 0.5, 1.5, 10.0, 0.3, 2.5] if n_meta_cols > 0 else [3.5, 0.6, 8.0, 0.3, 2.5]
+    width_ratios = [legend, spacer_legend, meta_bars_width + meta_bar_add, spacer_meta, heatmap_width, spacer_heatmap, 2.5] if n_meta_cols > 0 else [3.5, 0.6, 8.0, 0.3, 2.5]
     
     fig = plt.figure(figsize=(max(12, safe_cols * 0.80 + meta_bars_width), max(7, safe_rows * 0.35 + 1.5)))
 
     if n_meta_cols > 0:
         gs = gridspec.GridSpec(
             3, 7, figure=fig,
-            height_ratios=[1.0, 0.0, 8.0],
+            height_ratios=[top_bar_height, top_bar_spacer, 8.0],
             width_ratios=width_ratios,
-            wspace=0.10, hspace=0.20
+            wspace=0.10, hspace=hspace
         )
         ax_top = fig.add_subplot(gs[0, 4])
         ax_heat = fig.add_subplot(gs[2, 4])
@@ -325,9 +372,9 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     else:
         gs = gridspec.GridSpec(
             3, 5, figure=fig,
-            height_ratios=[1.0, 0.0, 8.0],
+            height_ratios=[top_bar_height, top_bar_spacer, 8.0],
             width_ratios=width_ratios,
-            wspace=0.10, hspace=0.25
+            wspace=0.10, hspace=hspace
         )
         ax_top = fig.add_subplot(gs[0, 2])
         ax_heat = fig.add_subplot(gs[2, 2])
@@ -458,20 +505,23 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # ---- Dynamic grid/ticks setup ----
     if np.isfinite(top_vals).any():
         ymax = float(np.nanmax(top_vals.values))
-        yceil = int(np.ceil(ymax))
-        ax_top.set_ylim(0, max(1, yceil))
-        
-        yticks = np.arange(0, yceil + 1, 1)
-        ax_top.set_yticks(yticks)
-        ax_top.axhline(0, color="#888888", linewidth=0.8)
-        if yceil >= 2:
-            ax_top.axhline(2, color="#cccccc", linewidth=0.5, linestyle="--")
+
+        if log_top:
+            yceil = int(np.ceil(ymax))
+            ax_top.set_ylim(0, max(1, yceil))
+            ax_top.set_yticks(np.arange(0, yceil + 1, 1))
+        else:
+            ax_top.set_ylim(0, ymax * 1.15)
+            ax_top.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
     else:
         ax_top.set_ylim(0, 1)
         ax_top.set_yticks([0, 1])
 
+    ax_top.set_ylabel(y_label)
+
     ax_top.spines["right"].set_visible(False)
     ax_top.spines["left"].set_visible(False)
+    ax_top.spines["top"].set_visible(False)
     ax_top.grid(axis='y', color='#888888', linewidth=0.5, zorder=10)
     ax_top.set_axisbelow(False)
 
