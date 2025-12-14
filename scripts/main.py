@@ -183,7 +183,7 @@ def parse_arguments():
     heatmap_layout.add_argument(
         '--hspace',
         type=float,
-        default=0.20,
+        default=0.25,
         dest='hspace',
         help='Vertical spacing between top and heatmap (default: 0.20). Reduce if too much space (0.15)'
     )
@@ -207,7 +207,7 @@ def parse_arguments():
     heatmap_layout.add_argument(
         '--meta_bar_thickness',
         type=float,
-        default=0.7,
+        default=0.8,
         dest='meta_bar_thickness',
         help='Thickness of metadata bars (default: 0.7). Smaller = more space between bars (e.g., 0.5-0.6)'
     )
@@ -239,7 +239,7 @@ def parse_arguments():
     heatmap_layout.add_argument(
         '--spacer_meta',
         type=float,
-        default=1.5,
+        default=2.0,
         dest='spacer_meta',
         help='Spacer between Meta_bars and Heatmap.'
     )
@@ -255,7 +255,7 @@ def parse_arguments():
     heatmap_layout.add_argument(
         '--legend',
         type=float,
-        default=3.5,
+        default=2.5,
         dest='legend',
         help='Legend width'
     )
@@ -658,7 +658,7 @@ if __name__ == '__main__':
                   "→ skipping metadata-based plots.")
 
     # drep and heatmap
-    species_level_plot(dfs['drep'], args.output)
+    # species_level_plot(dfs['drep'], args.output)
     
 
     # ---- dRep cluster plot ----
@@ -675,7 +675,7 @@ if __name__ == '__main__':
         bakta_df=dfs.get("bakta"),
     )
 
-    mag_detection_heatmap(dfs["coverm"], args.output)
+    # mag_detection_heatmap(dfs["coverm"], args.output)
     
     mag_heatmap(
         dfs["coverm"],
@@ -701,9 +701,9 @@ if __name__ == '__main__':
     )
 
     # ---- Assembly histograms from checkm2 ----
-    create_n50_histogram(dfs['checkm2'], args.output)
-    number_of_contigs(dfs["checkm2"], args.output)
-    create_assambly_info_histo(dfs["checkm2"], args.output)
+    # create_n50_histogram(dfs['checkm2'], args.output)
+    # number_of_contigs(dfs["checkm2"], args.output)
+    # create_assambly_info_histo(dfs["checkm2"], args.output)
 
     # ---- Quast-based plots ----
     if "quast" in dfs:
@@ -739,8 +739,8 @@ if __name__ == '__main__':
         print("[WARN] No Bakta file loaded → skipping Bakta plots.")
 
    # ---- Amber plots ----
-    if args.amber_file is not None:
-        binner_plot(load_single_df(args.amber_file), args.output)
+    # if args.amber_file is not None:
+    #     binner_plot(load_single_df(args.amber_file), args.output)
 
 
     end_time = time.time()
