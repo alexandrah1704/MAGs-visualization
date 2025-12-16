@@ -121,20 +121,6 @@ def parse_arguments():
         default=None,
     )
 
-    parser.add_argument(
-        '--metadata_heatmap',
-        help='Path to METADATA_HEATMAP',
-        dest='metadata_heatmap_file',
-        default=None
-    )
-
-    parser.add_argument(
-        '--metadata_heatmap_new',
-        help="Path to METADATA_HEATMAP_NEW",
-        dest="metadata_heatmap_new_file",
-        default=None,
-    )
-
     # Output
     parser.add_argument(
         '-o',
@@ -164,6 +150,136 @@ def parse_arguments():
 
     parser.add_argument(
         '--test'
+    )
+
+    # Heatmap Layout Options
+    heatmap_layout = parser.add_argument_group('Heatmap Layout Options',
+                                                'Fine-tune the heatmap visualization layout')
+    
+    heatmap_layout.add_argument(
+        '--fig_height_per_row',
+        type=float,
+        default=0.50,
+        dest='fig_height_per_row',
+        help='Height per sample row in heatmap (default: 0.50). Increase for many samples (e.g., 0.55-0.60)'
+    )
+    
+    heatmap_layout.add_argument(
+        '--fig_base_height',
+        type=float,
+        default=2.5,
+        dest='fig_base_height',
+        help='Base height for top/bottom margins (default: 2.5). Decrease for less space above (e.g., 2.0)'
+    )
+    
+    heatmap_layout.add_argument(
+        '--top_bar_height',
+        type=float,
+        default=0.7,
+        dest='top_bar_height',
+        help='Relative height of top histogram (default: 0.7). Smaller = more compact (e.g., 0.5-0.6)'
+    )
+    
+    heatmap_layout.add_argument(
+        '--hspace',
+        type=float,
+        default=0.25,
+        dest='hspace',
+        help='Vertical spacing between top and heatmap (default: 0.20). Reduce if too much space (0.15)'
+    )
+    
+    heatmap_layout.add_argument(
+        '--heatmap_width',
+        type=float,
+        default=11.0,
+        dest='heatmap_width',
+        help='Width ratio of the heatmap (default: 11.0). Increase for larger heatmap (e.g., 13.0)'
+    )
+
+    heatmap_layout.add_argument(
+        '--max_col',
+        type=int,
+        default=10,
+        dest='max_col',
+        help="Max shown taxonomy names."
+    )
+    
+    heatmap_layout.add_argument(
+        '--meta_bar_thickness',
+        type=float,
+        default=0.8,
+        dest='meta_bar_thickness',
+        help='Thickness of metadata bars (default: 0.7). Smaller = more space between bars (e.g., 0.5-0.6)'
+    )
+    
+    heatmap_layout.add_argument(
+        '--title_y',
+        type=float,
+        default=0.95,
+        dest='title_y',
+        help='Vertical position of title, 0.9-1.0 (default: 0.95). Lower = more space from top'
+    )
+    
+    heatmap_layout.add_argument(
+        '--heatmap_preset',
+        choices=['default', 'compact', 'spacious', 'many_samples', 'few_samples', 'focus_heatmap'],
+        default='default',
+        dest='heatmap_preset',
+        help='Use a predefined layout preset for common scenarios'
+    )
+
+    heatmap_layout.add_argument(
+        '--spacer_legend',
+        type=float,
+        default=0.3,
+        dest='spacer_legend',
+        help='Spacer between Legend and meta_bars.'
+    )
+
+    heatmap_layout.add_argument(
+        '--spacer_meta',
+        type=float,
+        default=2.0,
+        dest='spacer_meta',
+        help='Spacer between Meta_bars and Heatmap.'
+    )
+
+    heatmap_layout.add_argument(
+        '--spacer_heatmap',
+        type=float,
+        default=0.10,
+        dest='spacer_heatmap',
+        help='Spacer between Heatmap and histogram.'
+    )
+
+    heatmap_layout.add_argument(
+        '--legend',
+        type=float,
+        default=2.5,
+        dest='legend',
+        help='Legend width'
+    )
+
+    heatmap_layout.add_argument(
+        '--meta_bar_add',
+        type=float,
+        default=1.5,
+        dest='meta_bar_add',
+        help='Adding width to meta_bars'
+    )
+
+    heatmap_layout.add_argument(
+        '--top_bar_spacer',
+        type=float,
+        default=0.0,
+        dest='top_bar_spacer',
+        help='Space between top histogram title.'
+    )
+
+    heatmap_layout.add_argument(
+        '--no_log',
+        action="store_true",
+        help="Disable log10 for MAGs/rank bar plot."
     )
 
     # Plot arguments and styles
@@ -271,7 +387,7 @@ def parse_arguments():
 
 # ---- Data loading ---- #
 def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, 
-             metadata=None, metadata_heatmap=None, metadata_heatmap_new=None):
+             metadata=None):
     dfs = {}
     coverm_dfs = {}
 
@@ -359,30 +475,6 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None,
     else:
         print("[INFO] No metadata file provided.")
 
-    if metadata_heatmap is not None:
-        if metadata_heatmap.endswith(".csv"):
-            dfs['metadata_heatmap'] = pd.read_csv(metadata_heatmap, index_col=0)
-        elif metadata_heatmap.endswith(".tsv") or metadata_heatmap.endswith(".tabular"):
-            dfs['metadata_heatmap'] = pd.read_csv(metadata_heatmap, sep="\t", index_col=0)
-        else:
-            dfs['metadata_heatmap'] = pd.read_csv(metadata_heatmap, index_col=0)
-        print(f"[INFO] metadata_heatmap loaded: {dfs['metadata_heatmap'].shape} rows x columns")
-        print(f"[INFO] example samples in metadata_heatmap: {dfs['metadata_heatmap'].index[:5].tolist()}")
-    else:
-        print("[INFO] No heatmap metadata file provided.")
-    
-    if metadata_heatmap_new is not None:
-        if metadata_heatmap_new.endswith(".csv"):
-            dfs['metadata_heatmap_new'] = pd.read_csv(metadata_heatmap_new, index_col=0)
-        elif metadata_heatmap_new.endswith(".tsv") or metadata_heatmap_new.endswith(".tabular"):
-            dfs['metadata_heatmap_new'] = pd.read_csv(metadata_heatmap_new, sep="\t", index_col=0)
-        else:
-            dfs['metadata_heatmap_new'] = pd.read_csv(metadata_heatmap_new, index_col=0)
-        print(f"[INFO] metadata_heatmap_new loaded: {dfs['metadata_heatmap_new'].shape} rows x columns")
-        print(f"[INFO] example samples in metadata_heatmap_new: {dfs['metadata_heatmap_new'].index[:5].tolist()}")
-    else:
-        print("[INFO] No heatmap metadata file provided.")
-
     return dfs
 
 
@@ -440,8 +532,6 @@ if __name__ == '__main__':
         bakta=args.bakta_file,
         quast=args.quast_file,
         metadata=args.metadata_file,
-        metadata_heatmap=args.metadata_heatmap_file,
-        metadata_heatmap_new=args.metadata_heatmap_new_file,
     )
 
     dfs['coverm'] = merged_coverm(dfs['coverm'])
@@ -472,10 +562,8 @@ if __name__ == '__main__':
 
     # ---- Batka metric selection ----
     if args.bakta_metrics:
-        # Eingaben wie "CDS", "cds", "CDs" -> alles nach lowercase
         user_metrics = [m.strip().lower() for m in args.bakta_metrics]
 
-        # canonical_name -> (Display-Name, Spaltenname in bakta)
         bakta_metric_map = {
             "cds": ("CDS", "cdss"),
             "hypotheticals": ("Hypotheticals", "hypotheticals"),
@@ -568,7 +656,7 @@ if __name__ == '__main__':
                   "→ skipping metadata-based plots.")
 
     # drep and heatmap
-    species_level_plot(dfs['drep'], args.output)
+    # species_level_plot(dfs['drep'], args.output)
     
 
     # ---- dRep cluster plot ----
@@ -585,9 +673,8 @@ if __name__ == '__main__':
         bakta_df=dfs.get("bakta"),
     )
 
-    mag_detection_heatmap(dfs["coverm"], args.output)
-
-    # ---- Heatmap with bars ----
+    # mag_detection_heatmap(dfs["coverm"], args.output)
+    
     mag_heatmap(
         dfs["coverm"],
         dfs["gtdb"],
@@ -597,12 +684,24 @@ if __name__ == '__main__':
         meta_cols=args.meta_cols,
         meta_bin_width=args.meta_bin_width,
         fmt=args.format,
+        # Layout parameters
+        top_bar_height=args.top_bar_height,
+        hspace=args.hspace,
+        heatmap_width=args.heatmap_width,
+        spacer_legend=args.spacer_legend,
+        spacer_meta=args.spacer_meta,
+        spacer_heatmap=args.spacer_heatmap,
+        legend=args.legend,
+        meta_bar_add=args.meta_bar_add,
+        top_bar_spacer=args.top_bar_spacer,
+        max_col=args.max_col,
+        log_top=not args.no_log,
     )
 
     # ---- Assembly histograms from checkm2 ----
-    create_n50_histogram(dfs['checkm2'], args.output)
-    number_of_contigs(dfs["checkm2"], args.output)
-    create_assambly_info_histo(dfs["checkm2"], args.output)
+    # create_n50_histogram(dfs['checkm2'], args.output)
+    # number_of_contigs(dfs["checkm2"], args.output)
+    # create_assambly_info_histo(dfs["checkm2"], args.output)
 
     # ---- Quast-based plots ----
     if "quast" in dfs:
@@ -621,7 +720,7 @@ if __name__ == '__main__':
         print("[WARN] No Quast file loaded → skipping assembly quality plots.")
 
     # ---- Rank distribution pie plot ----
-    rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
+    # rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
 
     # ---- Bakta-based plots ----
     if "bakta" in dfs:
@@ -638,8 +737,8 @@ if __name__ == '__main__':
         print("[WARN] No Bakta file loaded → skipping Bakta plots.")
 
    # ---- Amber plots ----
-    if args.amber_file is not None:
-        binner_plot(load_single_df(args.amber_file), args.output)
+    # if args.amber_file is not None:
+    #     binner_plot(load_single_df(args.amber_file), args.output)
 
 
     end_time = time.time()

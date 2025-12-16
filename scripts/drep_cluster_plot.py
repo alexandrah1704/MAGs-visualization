@@ -276,28 +276,30 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     # ---- Figure & Layout ----
     if fig_size is None:
         if rep_quality_available:
-            fig_size = (12, max(7, top_n * 0.28))
+            fig_size = (14, max(7, top_n * 0.28))
         else:
-            fig_size = (12, max(8, top_n * 0.3))
+            fig_size = (14, max(8, top_n * 0.3))
 
     fig = plt.figure(figsize=fig_size)
 
     if rep_quality_available:
-        # [sample names | bars | spacer | taxonomy | spacer | heatmap]
-        gs = gridspec.GridSpec(1, 6, figure=fig, 
-                            width_ratios=[0.10, 2, 0.14, 0.25, 0.05, 0.4], 
-                            wspace=0.02)
+        # [sample names | bars | spacer | phylum | genus | spacer | heatmap]
+        gs = gridspec.GridSpec(1, 7, figure=fig, 
+                            width_ratios=[0.10, 2, 0.02, 0.30, 0.30, 0.02, 0.4], 
+                            wspace=0.08)
         ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
-        ax_taxonomy = fig.add_subplot(gs[0, 4])
-        ax_heatmap = fig.add_subplot(gs[0, 5])
+        ax_phylum = fig.add_subplot(gs[0, 3])
+        ax_genus = fig.add_subplot(gs[0, 4])
+        ax_heatmap = fig.add_subplot(gs[0, 6])
     else:
-        gs = gridspec.GridSpec(1, 4, figure=fig, 
-                            width_ratios=[0.15, 2, 0.05, 0.15], 
-                            wspace=0.02)
+        gs = gridspec.GridSpec(1, 5, figure=fig, 
+                            width_ratios=[0.15, 2, 0.05, 0.30, 0.30], 
+                            wspace=0.08)
         ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
-        ax_taxonomy = fig.add_subplot(gs[0, 4])
+        ax_phylum = fig.add_subplot(gs[0, 3])
+        ax_genus = fig.add_subplot(gs[0, 4])
         ax_heatmap = None
 
     # ---- Bar Plot ----
@@ -352,19 +354,46 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     for spine in ax_samples.spines.values():
         spine.set_visible(False)
 
-    # ---- Configure taxonomy axis ----
-    ax_taxonomy.set_xlim(0, 1)
-    ax_taxonomy.set_ylim(-0.5, len(cluster_data) - 0.5)
-    ax_taxonomy.set_yticks(y_pos)
+    # ---- Configure Phylum axis ----
+    ax_phylum.set_xlim(0, 1)
+    ax_phylum.set_ylim(-0.5, len(cluster_data) - 0.5)
+    ax_phylum.set_yticks(y_pos)
+    ax_phylum.set_yticklabels(cluster_data['phylum'].values, fontsize=8, ha='left')
+    ax_phylum.set_xticks([])
+    ax_phylum.tick_params(axis='y', which='both', length=0, pad=2)
 
-    tax_labels = [
-        f"{p}, {g}" for p, g in zip(cluster_data['phylum'], cluster_data['genus'])
-    ]
-    ax_taxonomy.set_yticklabels(tax_labels, fontsize=8)
-    ax_taxonomy.set_xticks([])
-
-    for spine in ax_taxonomy.spines.values():
+    for spine in ax_phylum.spines.values():
         spine.set_visible(False)
+    
+    # Add "Phylum" header
+    ax_phylum.text(
+        0.0, 1.02, 'Phylum',
+        ha='left', va='bottom', fontsize=9, fontweight='bold',
+        transform=ax_phylum.transAxes
+    )
+
+    # ---- Configure Genus axis ----
+    ax_genus.set_xlim(0, 1)
+    ax_genus.set_ylim(-0.5, len(cluster_data) - 0.5)
+    ax_genus.set_yticks(y_pos)
+    ax_genus.set_yticklabels(cluster_data['genus'].values, fontsize=8, ha='left')
+    ax_genus.set_xticks([])
+    ax_genus.tick_params(axis='y', which='both', length=0, pad=2)
+
+    for spine in ax_genus.spines.values():
+        spine.set_visible(False)
+    
+    # Add "Genus" header
+    ax_genus.text(
+        0.0, 1.02, 'Genus',
+        ha='left', va='bottom', fontsize=9, fontweight='bold',
+        transform=ax_genus.transAxes
+    )
+
+    for ax in (ax_phylum, ax_genus):
+        ax.grid(False)
+        ax.xaxis.grid(False)
+        ax.yaxis.grid(False)
         
     # ---- Heatmap - representative values only ----
     if rep_quality_available and ax_heatmap is not None:
