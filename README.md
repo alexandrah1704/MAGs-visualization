@@ -5,13 +5,32 @@
 
 ---
 
-## Install
+## Installation
 
-With conda/mamba:
+### Option 1: Conda / Mamba
 
-```
+```bash
 conda env create -f environment.yml
 conda activate mags
+```
+
+### Option 2: Python virtual environment (pip)
+
+```powershell
+# Change into project directory
+cd MAGs-visualization
+
+# Create virtual environment
+python -m venv .venv
+
+# Allow script execution for this session
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
 ---
@@ -28,7 +47,7 @@ This tool generates a variety of visualizations for MAGs, including:
 - bakta plot
 - Rank distribution diagram...
 
-All plots are saved in an user-defined output directory.
+All plots are saved in a user-defined output directory.
 
 ---
 
@@ -64,18 +83,20 @@ python main.py --help
 
 ### Basic example
 ```bash
-python scripts/main.py \
---coverm test-data/coverm.tsv \
---checkm test-data/checkm.tsv \
---checkm2 test-data/checkm2.tsv \
---gtdb test-data/gtdb.tsv \
---drep test-data/drep.csv \
--o new-test-plots
+use_case_folder="../test-data/marine"
+
+python ../scripts/main.py \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --checkm "$use_case_folder/checkm.tsv" \
+  --checkm2 "$use_case_folder/checkm2.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --drep "$use_case_folder/drep.csv" \
+  -o new-test-plots
 ```
 
 ## Plot Configurations
 
-### Taxonomix rank
+### Taxonomic rank
 ```bash
 --rank phylum
 ```
@@ -108,6 +129,7 @@ or
 --color_by quality
 
 --tax       # color by taxonomy
+
 --color_by tax
 --tax_level genus
 
@@ -117,7 +139,31 @@ or
 ```
 To show in the heatmap more than one metadata column:
 ```bash
---meta_cols weather temp ground #example columns
+--meta_cols weather temp ground # example columns
+```
+
+## Heatmap Options
+### Plot features
+```bash
+--top_bar_height 0.8  # Height of top bar
+
+--hspace 0.25 # Gap between top bar and heatmap
+
+--heatmap_width 11.0
+
+--spacer_legend 0.3 # Gap between legend and meta_bar
+
+--spacer_meta 2.0 # Gap between meta_bar and heatmap
+
+--spacer_heatmap # Gap between heatmap and histogram
+
+--legend 2.5  # Size of legend
+
+--meta_bar_add 1.5  # Additional width for meta_bar
+
+--top_bar_spacer 0.0  # Gap between header and top bar
+
+--max_col 10  # How many taxonomy names are shown (top 10)
 ```
 
 ## Bakta Options
@@ -130,6 +176,7 @@ To show in the heatmap more than one metadata column:
 ```bash
 --ratio  # e.g. hypotheticals/CDs
 ```
+
 Example:
 ```bash
 --bakta_metrics hypotheticals
@@ -149,29 +196,10 @@ Example:
 ```
 
 ## Examples
-### Example without configurations
-```bash
-python scripts/main.py \
---coverm test-data/coverm.tsv \
---checkm test-data/checkm.tsv \
---checkm2 test-data/checkm2.tsv \
---gtdb test-data/gtdb.tsv \
---drep test-data/drep.csv \
---quast test-data/quast.tsv \
---bakta test-data/bakta.tsv \
---metadata test-data/metadata.tsv \
---metadata_heatmap_new test-data/metadata_heatmap_new.tsv \
--o out \
-```
-The plots you will get:
-Completeness-Contamination plots colored by quality and taxonomy 'pyhlum' by default.
-Sankey_plots, heatmap with abundance, rank distribution pie, some assemlby_quality plots and bakta plots.
+Full examples can be found in ['use-cases/README.md'](use-cases/README.md)
 
 ### Example with color configuration
 ```bash
-python scripts/main.py \
---coverm ... --checkm ... checkm2 ... etc. \
--o out \
 --quality   # or color_by quality
 
 --tax             # → Checkm/Checkm2 plots colored by taxonomy \
@@ -192,29 +220,5 @@ If you want a specific assembly_quality plot from quast, you need to specify the
 --color_by tax \
 --tax_level genus \
 ```
-
-### Example to color heatmap with more than one meta column
-```bash
-python scripts/main.py \
---coverm ... --checkm ... checkm2 ... etc. \
---metadata_heatmap_new test-data/metadata_heatmap_new.tsv \
--o out \
---meta_cols weather temp ground
-```
-
-### Example dRep to show most representative MAGs
-```bash
-python scripts/main.py \
---coverm test-data/coverm.tsv \
---checkm test-data/checkm.tsv \
---checkm2 test-data/checkm2.tsv \
---gtdb test-data/gtdb.tsv \
---drep test-data/drep.csv \
---quast test-data/quast.tsv \
---bakta test-data/bakta.tsv \
--o new-test-plots \
---top_n 30
-```
-
 
 

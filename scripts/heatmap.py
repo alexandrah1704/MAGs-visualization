@@ -177,7 +177,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     spacer_legend: float = 0.3,
     spacer_meta: float = 2.0,
     spacer_heatmap: float = 0.10,
-    legend: float = 2.5,
+    legend: float = 4.0,
     meta_bar_add: float = 1.5,
     top_bar_spacer: float = 0.0,
     max_col: int = 10,
@@ -356,12 +356,21 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     meta_bars_width = n_meta_cols * 0.50 if n_meta_cols > 0 else 0.0
     width_ratios = [legend, spacer_legend, meta_bars_width + meta_bar_add, spacer_meta, heatmap_width, spacer_heatmap, 2.5] if n_meta_cols > 0 else [3.5, 0.6, 8.0, 0.3, 2.5]
     
-    fig = plt.figure(figsize=(max(12, safe_cols * 0.80 + meta_bars_width), max(7, safe_rows * 0.35 + 1.5)))
+    # Calculate height for legends depending on meta
+    total_legend_categories = len(bin_labels)  # Abundance
+    if all_metadata:
+        for meta_info in all_metadata:
+            total_legend_categories += len(meta_info["color_map"])
 
+    min_height = max(10, total_legend_categories * 0.4 + 3.0)
+
+    fig = plt.figure(figsize=(max(12, safe_cols * 0.80 + meta_bars_width), 
+                          max(min_height, safe_rows * 0.35 + 3.0)))
+    
     if n_meta_cols > 0:
         gs = gridspec.GridSpec(
             3, 7, figure=fig,
-            height_ratios=[top_bar_height, top_bar_spacer, 8.0],
+            height_ratios=[top_bar_height, top_bar_spacer, 12.0],
             width_ratios=width_ratios,
             wspace=0.10, hspace=hspace
         )
@@ -372,7 +381,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     else:
         gs = gridspec.GridSpec(
             3, 5, figure=fig,
-            height_ratios=[top_bar_height, top_bar_spacer, 8.0],
+            height_ratios=[top_bar_height, top_bar_spacer, 12.0],
             width_ratios=width_ratios,
             wspace=0.10, hspace=hspace
         )
@@ -385,18 +394,18 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # left column split into abundance legend & metadata legend
     n_meta_legends = len(all_metadata) if all_metadata else 0
 
-    abund_height = 2.0 if n_meta_legends == 0 else 4.0
+    abund_height = 4.5 if n_meta_legends == 0 else 6.0
     meta_heights = []
 
     for meta_info in all_metadata:
         num_cats = len(meta_info["color_map"])
-        meta_heights.append( max(3.0, num_cats * 0.25) )
+        meta_heights.append( max(4.0, num_cats * 0.65) )
 
     left_height_ratios = [abund_height] + meta_heights
 
     left = gs[2, 0].subgridspec(1 + len(all_metadata), 1,
                                 height_ratios=left_height_ratios,
-                                hspace=0.35)
+                                hspace=0.8)
 
     ax_abund_legend = fig.add_subplot(left[0, 0])
     ax_meta_legends = [fig.add_subplot(left[i+1, 0]) for i in range(n_meta_legends)] if n_meta_legends > 0 else []
@@ -443,7 +452,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
             ax_meta.set_title(meta_info['title'], fontsize=10, pad=6)
             ax_meta.title.set_x(0.15)
 
-            row_height = 1.4
+            row_height = 1.0
 
             cats = list(meta_info['color_map'].keys())
             ax_meta.set_xlim(0, 1)
@@ -453,7 +462,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
                 y = i * row_height
                 color = meta_info['color_map'][cat]
                 ax_meta.add_patch(
-                    Rectangle((0.05, y), 0.25, row_height, color=color, ec="#888888", linewidth=0.5)
+                    Rectangle((0.05, y), 0.25, row_height * 0.9, color=color, ec="#888888", linewidth=0.5)
                 )
                 ax_meta.text(0.35, y + row_height/2, str(cat), va="center", fontsize=9)
             ax_meta.axis("off")

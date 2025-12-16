@@ -562,10 +562,8 @@ if __name__ == '__main__':
 
     # ---- Batka metric selection ----
     if args.bakta_metrics:
-        # Eingaben wie "CDS", "cds", "CDs" -> alles nach lowercase
         user_metrics = [m.strip().lower() for m in args.bakta_metrics]
 
-        # canonical_name -> (Display-Name, Spaltenname in bakta)
         bakta_metric_map = {
             "cds": ("CDS", "cdss"),
             "hypotheticals": ("Hypotheticals", "hypotheticals"),
@@ -722,7 +720,7 @@ if __name__ == '__main__':
         print("[WARN] No Quast file loaded → skipping assembly quality plots.")
 
     # ---- Rank distribution pie plot ----
-    rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
+    # rank_distribution_pie(dfs["gtdb"], args.output, args.rank, args.n)
 
     # ---- Bakta-based plots ----
     if "bakta" in dfs:
