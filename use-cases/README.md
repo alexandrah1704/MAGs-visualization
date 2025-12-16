@@ -45,6 +45,11 @@ python ../scripts/main.py \
   -o test
 ```
 
+```bash
+--no_log \
+--top_bar_height 2.0
+```
+
 ## Cloud
 
 ```bash
@@ -69,6 +74,11 @@ python ../scripts/main.py \
   -o test
 ```
 
+If without --no_log:
+```bash
+--top_bar_height 1.4
+```
+
 ## Termite
 
 ```bash
@@ -84,7 +94,8 @@ python ../scripts/main.py \
   --metadata "$use_case_folder/metadata.tsv" \
   --meta_cols "Species" "Casts" "Colony" \
   --color_by tax \
-  --tax_level phylum \
+  --tax_level genus \
+  --max_col 10 \
   --top_n 30 \
   --spacer_meta 4.0 \
   --no_log \

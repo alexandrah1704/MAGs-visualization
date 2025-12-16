@@ -98,9 +98,9 @@ python main.py --help
 
 ### Basic example
 ```bash
-use_case_folder="../test-data/marine"
+use_case_folder="test-data/marine"
 
-python ../scripts/main.py \
+python scripts/main.py \
   --coverm "$use_case_folder/coverm.tsv" \
   --checkm "$use_case_folder/checkm.tsv" \
   --checkm2 "$use_case_folder/checkm2.tsv" \
