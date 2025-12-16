@@ -7,7 +7,22 @@
 
 ## Installation
 
+### Prerequisites
+
+- Python ≥ 3.11
+- Conda (Miniconda, Miniforge, Mambaforge)
+- Git
+
 ### Option 1: Conda / Mamba
+
+Clone the repository and change into the project directory:
+
+```bash
+git clone https://github.com/alexandrah1704/MAGs-visualization.git
+cd MAGs-visualization
+```
+
+Create conda environment and activate it:
 
 ```bash
 conda env create -f environment.yml
