@@ -19,6 +19,7 @@ from bakta_checkm2_plot import bakta_annotation_plot
 # from drep_taxa_plot import drep_taxa_plot
 from drep_cluster_plot import drep_cluster_plot
 
+
 # ---- Argument parsing ---- #
 def positive_int(value):
     ivalue = int(value)
@@ -142,6 +143,7 @@ def parse_arguments():
     parser.add_argument(
         '-n',
         '--top_n_counts',
+        '--top_n',
         help='For the rank distribution, only plot the top n. Min: 5 DEFAULT:5',
         type=positive_int,
         dest="n",
@@ -286,7 +288,7 @@ def parse_arguments():
     parser.add_argument(
         '--tax_levels_space',
         type=float,
-        default=0.4,
+        default=0.3,
         dest='tax_levels_space',
         help='Space for tax_levels columns in drep_cluster_plot.'
     )

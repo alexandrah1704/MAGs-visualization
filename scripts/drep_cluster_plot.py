@@ -39,7 +39,7 @@ def extract_rank(tax, rank: str):
 # ---- Main plot function ----
 def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str, 
                      tax_levels=("phylum", "genus"), top_n: int = 30, fmt: str = "png",
-                     tax_levels_space: float = 0.4, fig_size=None, checkm2_df: pd.DataFrame = None,
+                     tax_levels_space: float = 0.3, fig_size=None, checkm2_df: pd.DataFrame = None,
                      quast_df: pd.DataFrame = None, bakta_df: pd.DataFrame = None,):
     """
     Create a horizontal bar plot showing the top N clusters by member count,
