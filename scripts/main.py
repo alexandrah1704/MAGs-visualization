@@ -282,6 +282,15 @@ def parse_arguments():
         help="Disable log10 for MAGs/rank bar plot."
     )
 
+    # drep
+    parser.add_argument(
+        '--tax_levels_space',
+        type=float,
+        default=0.4,
+        dest='tax_levels_space',
+        help='Space for tax_levels columns in drep_cluster_plot.'
+    )
+
     # Plot arguments and styles
     parser.add_argument(
         '--quality',
@@ -310,6 +319,15 @@ def parse_arguments():
         choices=["domain", "phylum", "class", "order", "family", "genus", "species"],
         dest="tax_level"
     )
+
+    parser.add_argument(
+        '--tax_levels',
+        nargs='+',
+        choices=["domain", "phylum", "class", "order", "family", "genus", "species"],
+        default=["phylum", "genus"],
+        help="GTDB taxonomy levels to show in dRep cluster plot"
+    )
+
 
     parser.add_argument(
         '--format',
@@ -664,10 +682,11 @@ if __name__ == '__main__':
         dfs["drep"],
         dfs["gtdb"],
         args.output,
-        tax_level=tax_rank,
+        tax_levels=args.tax_levels,
         top_n=args.n,
         fig_size=comp_fig_size,
         fmt=args.format,
+        tax_levels_space=args.tax_levels_space,
         checkm2_df=dfs.get("checkm2"),
         quast_df=dfs.get("quast"),
         bakta_df=dfs.get("bakta"),

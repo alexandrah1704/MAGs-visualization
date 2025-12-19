@@ -38,8 +38,8 @@ def extract_rank(tax, rank: str):
 
 # ---- Main plot function ----
 def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str, 
-                     tax_level: str = "genus", top_n: int = 30, fmt: str = "png",
-                     fig_size=None, checkm2_df: pd.DataFrame = None,
+                     tax_levels=("phylum", "genus"), top_n: int = 30, fmt: str = "png",
+                     tax_levels_space: float = 0.4, fig_size=None, checkm2_df: pd.DataFrame = None,
                      quast_df: pd.DataFrame = None, bakta_df: pd.DataFrame = None,):
     """
     Create a horizontal bar plot showing the top N clusters by member count,
@@ -54,12 +54,29 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     """
     
     os.makedirs(output_path, exist_ok=True)
-    
+
+    # ---- Validate tax levels ----
+    valid_ranks = {"domain", "phylum", "class", "order", "family", "genus", "species"}
+    if tax_levels is None:
+        tax_levels = ("phylum", "genus")
+
+    if isinstance(tax_levels, str):
+        tax_levels = tuple(tax_levels.split())
+
+    tax_levels = tuple([t.lower().strip() for t in tax_levels if str(t).strip() != ""])
+    if len(tax_levels) == 0:
+        tax_levels = ("phylum", "genus")
+
+    for lvl in tax_levels:
+        if lvl not in valid_ranks:
+            raise ValueError(f"Invalid tax level '{lvl}'. Choose from {sorted(valid_ranks)}.")
+
+    print(f"[INFO] Creating dRep cluster plot (top {top_n}, tax_levels={tax_levels})")
+
     # ---- dRep & gtdb ----
     drep = drep_df.copy()
     gtdb = gtdb_df.copy()
     
-    print(f"[INFO] Creating dRep cluster plot (top {top_n}, tax_level={tax_level})")
     
     if drep.index.name is not None:
         drep = drep.reset_index()
@@ -89,10 +106,10 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
 
     # Normalize genome IDs in GTDB
     gtdb['user_genome_normalized'] = gtdb['user_genome'].apply(normalize_genome_id)
-    ranks_to_extract = {tax_level, "phylum", "genus"}
 
-    for lvl in ranks_to_extract:
-        gtdb[lvl] = gtdb['classification'].apply(lambda x: extract_rank(x, lvl))
+    # Extract requested ranks
+    for lvl in set(tax_levels):
+        gtdb[lvl] = gtdb["classification"].apply(lambda x: extract_rank(x, lvl))
 
     gtdb_genomes = set(gtdb['user_genome_normalized'].values)
 
@@ -114,9 +131,7 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     cluster_data['representative_display'] = cluster_data['representative'].str.replace('_fasta', '', regex=False).str.replace('srr', 'SRR', regex=False)
     
     # Columns to merge from gtdb
-    cols_to_merge = ['user_genome_normalized', 'phylum', 'genus']
-    if tax_level not in ('phylum', 'genus'):
-        cols_to_merge.append(tax_level)
+    cols_to_merge = ['user_genome_normalized'] + list(tax_levels)
 
     # Attach tax to cluster data
     cluster_data = cluster_data.merge(
@@ -126,16 +141,14 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
         how='left'
     )
 
-    cluster_data['phylum'] = cluster_data.get('phylum', 'Unclassified').fillna('Unclassified')
-    cluster_data['genus']  = cluster_data.get('genus',  'Unclassified').fillna('Unclassified')
+    # Fill taxonomy
+    for lvl in tax_levels:
+        if lvl in cluster_data.columns:
+            cluster_data[lvl] = cluster_data[lvl].fillna("Unclassified")
+        else:
+            cluster_data[lvl] = "Unclassified"
 
-    if tax_level in cluster_data.columns:
-        cluster_data[tax_level] = cluster_data[tax_level].fillna('Unclassified')
-
-    cluster_data = cluster_data.sort_values('n_members', ascending=True)
-    
-    print("[INFO] Phylum breakdown:")
-    print(cluster_data['phylum'].value_counts())
+    cluster_data = cluster_data.sort_values("n_members", ascending=True)
 
     # ---- CheckM2 data - completeness and contamination ----
     rep_quality_available = False
@@ -282,24 +295,45 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
 
     fig = plt.figure(figsize=fig_size)
 
+    n_tax = len(tax_levels)
+
     if rep_quality_available:
-        # [sample names | bars | spacer | phylum | genus | spacer | heatmap]
-        gs = gridspec.GridSpec(1, 7, figure=fig, 
-                            width_ratios=[0.10, 2, 0.02, 0.30, 0.30, 0.02, 0.4], 
-                            wspace=0.08)
+        # [sample names | bars | spacer | tax... | spacer | heatmap]
+        width_ratios = [0.10, 2, 0.02] + [tax_levels_space] * n_tax + [0.04, 0.4]
+        gs = gridspec.GridSpec(
+            1,
+            len(width_ratios),
+            figure=fig,
+            width_ratios=width_ratios,
+            wspace=0.08,
+        )
         ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
-        ax_phylum = fig.add_subplot(gs[0, 3])
-        ax_genus = fig.add_subplot(gs[0, 4])
-        ax_heatmap = fig.add_subplot(gs[0, 6])
+
+        tax_axes = []
+        tax_start_col = 3
+        for i, lvl in enumerate(tax_levels):
+            tax_axes.append((lvl, fig.add_subplot(gs[0, tax_start_col + i])))
+
+        ax_heatmap = fig.add_subplot(gs[0, len(width_ratios) - 1])
     else:
-        gs = gridspec.GridSpec(1, 5, figure=fig, 
-                            width_ratios=[0.15, 2, 0.05, 0.30, 0.30], 
-                            wspace=0.08)
+        # [sample names | bars | spacer | tax...]
+        width_ratios = [0.15, 2, 0.05] + [0.30] * n_tax
+        gs = gridspec.GridSpec(
+            1,
+            len(width_ratios),
+            figure=fig,
+            width_ratios=width_ratios,
+            wspace=0.08,
+        )
         ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
-        ax_phylum = fig.add_subplot(gs[0, 3])
-        ax_genus = fig.add_subplot(gs[0, 4])
+
+        tax_axes = []
+        tax_start_col = 3
+        for i, lvl in enumerate(tax_levels):
+            tax_axes.append((lvl, fig.add_subplot(gs[0, tax_start_col + i])))
+
         ax_heatmap = None
 
     # ---- Bar Plot ----
@@ -354,43 +388,29 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     for spine in ax_samples.spines.values():
         spine.set_visible(False)
 
-    # ---- Configure Phylum axis ----
-    ax_phylum.set_xlim(0, 1)
-    ax_phylum.set_ylim(-0.5, len(cluster_data) - 0.5)
-    ax_phylum.set_yticks(y_pos)
-    ax_phylum.set_yticklabels(cluster_data['phylum'].values, fontsize=8, ha='left')
-    ax_phylum.set_xticks([])
-    ax_phylum.tick_params(axis='y', which='both', length=0, pad=2)
+    # ---- Configure taxonomy axes (dynamic) ----
+    for lvl, ax in tax_axes:
+        ax.set_xlim(0, 1)
+        ax.set_ylim(-0.5, len(cluster_data) - 0.5)
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(cluster_data[lvl].values, fontsize=8, ha="left")
+        ax.set_xticks([])
+        ax.tick_params(axis="y", which="both", length=0, pad=2)
 
-    for spine in ax_phylum.spines.values():
-        spine.set_visible(False)
-    
-    # Add "Phylum" header
-    ax_phylum.text(
-        0.0, 1.02, 'Phylum',
-        ha='left', va='bottom', fontsize=9, fontweight='bold',
-        transform=ax_phylum.transAxes
-    )
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
-    # ---- Configure Genus axis ----
-    ax_genus.set_xlim(0, 1)
-    ax_genus.set_ylim(-0.5, len(cluster_data) - 0.5)
-    ax_genus.set_yticks(y_pos)
-    ax_genus.set_yticklabels(cluster_data['genus'].values, fontsize=8, ha='left')
-    ax_genus.set_xticks([])
-    ax_genus.tick_params(axis='y', which='both', length=0, pad=2)
+        ax.text(
+            0.0,
+            1.02,
+            lvl.capitalize(),
+            ha="left",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold",
+            transform=ax.transAxes,
+        )
 
-    for spine in ax_genus.spines.values():
-        spine.set_visible(False)
-    
-    # Add "Genus" header
-    ax_genus.text(
-        0.0, 1.02, 'Genus',
-        ha='left', va='bottom', fontsize=9, fontweight='bold',
-        transform=ax_genus.transAxes
-    )
-
-    for ax in (ax_phylum, ax_genus):
         ax.grid(False)
         ax.xaxis.grid(False)
         ax.yaxis.grid(False)
@@ -681,7 +701,8 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
         fontweight='bold'
     )
     
-    out_file = os.path.join(output_path, f"drep_cluster_top{top_n}_{tax_level}.{fmt}")
+    tax_tag = "-".join(tax_levels)
+    out_file = os.path.join(output_path, f"drep_cluster_top{top_n}_{tax_tag}.{fmt}")
     plt.savefig(out_file, dpi=300, bbox_inches='tight')
     plt.close()
     
