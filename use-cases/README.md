@@ -5,7 +5,7 @@ All commands below assume that you are working from the directory **MAGs-visuali
 ## Marine
 
 ```bash
-use_case_folder="../test-data/marine"
+use_case_folder="marine-use-case/data"
 
 python ../scripts/main.py \
   --coverm "$use_case_folder/coverm.tsv" \
@@ -25,7 +25,7 @@ python ../scripts/main.py \
 ## Bee
 
 ```bash
-use_case_folder="../test-data/bee"
+use_case_folder="bee-use-case/data"
 
 python ../scripts/main.py \
   --coverm "$use_case_folder/coverm.tsv" \
@@ -53,7 +53,7 @@ python ../scripts/main.py \
 ## Cloud
 
 ```bash
-use_case_folder="../test-data/cloud"
+use_case_folder="cloud-use-case/data"
 
 python ../scripts/main.py \
   --coverm "$use_case_folder/coverm.tsv" \
@@ -82,7 +82,7 @@ If without --no_log:
 ## Termite
 
 ```bash
-use_case_folder="../test-data/termite"
+use_case_folder="termite-use-case/data"
 
 python ../scripts/main.py \
   --coverm "$use_case_folder/coverm.tsv" \
@@ -108,7 +108,7 @@ If you want to use powershell instead of bash, here are the examples.
 ## Marine
 
 ```powershell
-$use_case_folder = "..\test-data\marine"
+$use_case_folder = "marine-use-case\data"
 
 python ..\scripts\main.py `
   --coverm "$use_case_folder\coverm.tsv" `
@@ -128,7 +128,7 @@ python ..\scripts\main.py `
 ## Bee
 
 ```powershell
-$use_case_folder = "..\test-data\bee"
+$use_case_folder = "bee-use-case\data"
 
 python ..\scripts\main.py `
   --coverm "$use_case_folder\coverm.tsv" `
@@ -156,7 +156,7 @@ python ..\scripts\main.py `
 ## Cloud
 
 ```powershell
-$use_case_folder = "..\test-data\cloud"
+$use_case_folder = "cloud-use-case\data"
 
 python ..\scripts\main.py `
   --coverm "$use_case_folder\coverm.tsv" `
@@ -185,7 +185,7 @@ If without --no_log:
 ## Termite
 
 ```powershell
-$use_case_folder = "..\test-data\termite"
+$use_case_folder = "termite-use-case\data"
 
 python ..\scripts\main.py `
   --coverm "$use_case_folder\coverm.tsv" `
