@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import gridspec, cm
 from matplotlib.colors import Normalize
 from matplotlib.patches import Patch
-from id_normalizer import normalize_genome_id
+from .id_normalizer import normalize_genome_id
 
 
 def extract_rank(tax, rank: str):

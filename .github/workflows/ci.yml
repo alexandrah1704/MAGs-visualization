@@ -25,6 +25,12 @@ jobs:
           else
             pip install pandas numpy matplotlib networkx
           fi
+      
+      - name: Install package
+        run: pip install .
+      
+      - name: Smoke test CLI
+        run: mags-visualization --help
 
       - name: Run test script
         run: |

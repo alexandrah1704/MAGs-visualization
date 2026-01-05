@@ -4,8 +4,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from id_normalizer import normalize_genome_series
-from heatmap import extract_rank
+from mags_visualization.id_normalizer import normalize_genome_series
+from mags_visualization.heatmap import extract_rank
 
 def drep_taxa_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, 
                    output_dir: str, rank: str = "phylum", top_n: int = 15,
