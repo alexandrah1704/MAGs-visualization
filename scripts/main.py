@@ -539,7 +539,7 @@ def check_path(output_path):
         print(f"[INFO] Folder already exists: {output_path}")
 
 # ---- Main ---- #
-if __name__ == '__main__':
+def main():
     start_time = time.time()
     args = parse_arguments()
 
@@ -764,3 +764,6 @@ if __name__ == '__main__':
 
     end_time = time.time()
     print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
+
+if __name__ == '__main__':
+    main()
