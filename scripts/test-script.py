@@ -8,13 +8,12 @@ from pathlib import Path
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
 
-    # Ordner: test-data enthält bee-use-case Daten
-    use_case_folder = repo_root / "test-data"  # z.B. test-data/coverm.tsv etc.
+    use_case_folder = repo_root / "test-data"
     out_dir = repo_root / "test-plots"
 
     main_py = repo_root / "scripts" / "main.py"
 
-    # Basis-Command (entspricht deinem PowerShell Beispiel)
+    # Basis-Command (Powershell)
     cmd = [
         sys.executable,
         str(main_py),
@@ -28,7 +27,7 @@ def main() -> int:
         "--bakta", str(use_case_folder / "bakta.tsv"),
         "--metadata", str(use_case_folder / "metadata.tsv"),
 
-        # metadata columns (mehrere Werte!)
+        # metadata columns
         "--meta_cols",
         "Infection by Nosema ceranae",
         "Chronic exposure to neonicotinoid",
@@ -37,7 +36,6 @@ def main() -> int:
         "--color_by", "tax",
         "--tax_level", "phylum",
 
-        # in deinem aktuellen main.py: -n/--top_n_counts (nicht --top_n)
         "--top_n", "30",
 
         "--top_bar_spacer", "-0.5",
@@ -52,7 +50,6 @@ def main() -> int:
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # cwd auf repo_root setzen, damit relative Imports/Pfade stabil sind
     result = subprocess.run(cmd, cwd=str(repo_root))
     return result.returncode
 
