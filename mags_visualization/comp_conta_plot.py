@@ -5,7 +5,7 @@ import seaborn as sns                   # High-level Plots
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.gridspec as gridspec
-from id_normalizer import normalize_genome_id
+from .id_normalizer import normalize_genome_id
 from pandas.api.types import is_bool_dtype
 
 

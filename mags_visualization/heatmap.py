@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.patches import Rectangle
-from id_normalizer import normalize_genome_id
+from .id_normalizer import normalize_genome_id
 from pandas.api.types import is_bool_dtype
 
 # ---- Tax and ID processing ----

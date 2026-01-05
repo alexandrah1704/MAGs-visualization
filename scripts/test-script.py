@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -11,12 +12,17 @@ def main() -> int:
     use_case_folder = repo_root / "test-data"
     out_dir = repo_root / "test-plots"
 
-    main_py = repo_root / "scripts" / "main.py"
+    if shutil.which("mags-visualization") is None:
+        print("[ERROR] mags-visualization not found. Did you run 'pip install .'?")
+        return 1
+
+    # main_py = repo_root / "scripts" / "main.py"
 
     # Basis-Command (Powershell)
     cmd = [
-        sys.executable,
-        str(main_py),
+        # sys.executable,
+        # str(main_py),
+        sys.executable, "-m", "mags_visualization.main",
 
         "--coverm", str(use_case_folder / "coverm.tsv"),
         "--checkm", str(use_case_folder / "checkm.tsv"),

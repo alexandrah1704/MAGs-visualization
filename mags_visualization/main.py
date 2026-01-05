@@ -1,23 +1,22 @@
 from json import load
-from networkx import number_of_nodes
 import pandas as pd
 import numpy as np
 import argparse
 import time
 import os
-from version import __version__
-from sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
-from comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot, metadata_completeness_contamination_plot
-from species_level_plot import species_level_plot
-from mag_heatmap import mag_detection_heatmap
-from heatmap import mag_heatmap
-from histogram_plots import create_n50_histogram, number_of_contigs, create_assambly_info_histo
-from rank_dist_plot import rank_distribution_pie
-from amber_plots import binner_plot
-from assembly_quality import assembly_quality_plot
-from bakta_checkm2_plot import bakta_annotation_plot
+from .version import __version__
+from .sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
+from .comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot, metadata_completeness_contamination_plot
+from .species_level_plot import species_level_plot
+from .mag_heatmap import mag_detection_heatmap
+from .heatmap import mag_heatmap
+from .histogram_plots import create_n50_histogram, number_of_contigs, create_assambly_info_histo
+from .rank_dist_plot import rank_distribution_pie
+# from .scripts.amber_plots import binner_plot
+from .assembly_quality import assembly_quality_plot
+from .bakta_checkm2_plot import bakta_annotation_plot
 # from drep_taxa_plot import drep_taxa_plot
-from drep_cluster_plot import drep_cluster_plot
+from .drep_cluster_plot import drep_cluster_plot
 
 
 # ---- Argument parsing ---- #
@@ -27,7 +26,7 @@ def positive_int(value):
         raise argparse.ArgumentTypeError(f"{value} must be >= 5")
     return ivalue
 
-def parse_arguments():
+def parse_arguments(argv=None):
 
     parser = argparse.ArgumentParser(
         prog="MAGs-visualization",
@@ -401,7 +400,7 @@ def parse_arguments():
 
     parser.print_usage = parser.print_help
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     return args
 
@@ -539,9 +538,9 @@ def check_path(output_path):
         print(f"[INFO] Folder already exists: {output_path}")
 
 # ---- Main ---- #
-def main():
+def main(argv=None):
     start_time = time.time()
-    args = parse_arguments()
+    args = parse_arguments(argv)
 
     dfs = load_dfs(
         args.coverm_path,
@@ -765,5 +764,7 @@ def main():
     end_time = time.time()
     print(f'[INFO] Run time: {time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))}')
 
+    return 0
+
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
