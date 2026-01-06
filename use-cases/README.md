@@ -1,5 +1,10 @@
 # Example use case
-All commands below assume that you are working from the directory **MAGs-visualization/use-cases**.
+All commands below assume that the command-line tool `mags-visualization`is installed and available in your environment.
+
+The working directory should be **MAGs-visualization/use-cases** 
+so that the example paths resolve correctly.
+
+If the command is not available, install the package first (['README.md'](../README.md))
 
 # Bash
 ## Marine
@@ -7,7 +12,7 @@ All commands below assume that you are working from the directory **MAGs-visuali
 ```bash
 use_case_folder="marine-use-case/data"
 
-python ../scripts/main.py \
+mags-visualization \
   --coverm "$use_case_folder/coverm.tsv" \
   --checkm "$use_case_folder/checkm.tsv" \
   --checkm2 "$use_case_folder/checkm2.tsv" \
@@ -27,7 +32,7 @@ python ../scripts/main.py \
 ```bash
 use_case_folder="bee-use-case/data"
 
-python ../scripts/main.py \
+mags-visualization \
   --coverm "$use_case_folder/coverm.tsv" \
   --checkm "$use_case_folder/checkm.tsv" \
   --checkm2 "$use_case_folder/checkm2.tsv" \
@@ -55,7 +60,7 @@ python ../scripts/main.py \
 ```bash
 use_case_folder="cloud-use-case/data"
 
-python ../scripts/main.py \
+mags-visualization \
   --coverm "$use_case_folder/coverm.tsv" \
   --checkm "$use_case_folder/checkm.tsv" \
   --checkm2 "$use_case_folder/checkm2.tsv" \
@@ -84,7 +89,7 @@ If without --no_log:
 ```bash
 use_case_folder="termite-use-case/data"
 
-python ../scripts/main.py \
+mags-visualization \
   --coverm "$use_case_folder/coverm.tsv" \
   --checkm "$use_case_folder/checkm.tsv" \
   --checkm2 "$use_case_folder/checkm2.tsv" \
@@ -110,7 +115,7 @@ If you want to use powershell instead of bash, here are the examples.
 ```powershell
 $use_case_folder = "marine-use-case\data"
 
-python ..\scripts\main.py `
+mags-visualization `
   --coverm "$use_case_folder\coverm.tsv" `
   --checkm "$use_case_folder\checkm.tsv" `
   --checkm2 "$use_case_folder\checkm2.tsv" `
@@ -130,7 +135,7 @@ python ..\scripts\main.py `
 ```powershell
 $use_case_folder = "bee-use-case\data"
 
-python ..\scripts\main.py `
+mags-visualization `
   --coverm "$use_case_folder\coverm.tsv" `
   --checkm "$use_case_folder\checkm.tsv" `
   --checkm2 "$use_case_folder\checkm2.tsv" `
@@ -158,7 +163,7 @@ python ..\scripts\main.py `
 ```powershell
 $use_case_folder = "cloud-use-case\data"
 
-python ..\scripts\main.py `
+mags-visualization `
   --coverm "$use_case_folder\coverm.tsv" `
   --checkm "$use_case_folder\checkm.tsv" `
   --checkm2 "$use_case_folder\checkm2.tsv" `
@@ -187,7 +192,7 @@ If without --no_log:
 ```powershell
 $use_case_folder = "termite-use-case\data"
 
-python ..\scripts\main.py `
+mags-visualization `
   --coverm "$use_case_folder\coverm.tsv" `
   --checkm "$use_case_folder\checkm.tsv" `
   --checkm2 "$use_case_folder\checkm2.tsv" `

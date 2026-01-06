@@ -6,14 +6,37 @@
 ---
 
 ## Installation
+There are two supported ways to install and use this tool:
+- Recommended (users): install the package via pip and use the command-line tool
+- Alternative (developers): clone the repository and work from source
 
 ### Prerequisites
 
-- Python ≥ 3.11
+- Python ≥ 3.9
 - Conda (Miniconda, Miniforge, Mambaforge)
 - Git
 
-### Option 1: Conda / Mamba
+### Option 1 (recommended): Install via pip
+
+```bash
+pip install MAGs-visualization
+```
+
+```md
+> Note: The package is currently not yet published on PyPI.
+> Until then, install from source using `pip install .`
+```
+
+After installation, the command-line tool is available as:
+```bash
+mags-visualization --help
+```
+
+This method works independently of the repository structure.
+
+### Option 2: Install from source (development/testing)
+
+#### 2a: Conda / Mamba
 
 Clone the repository and change into the project directory:
 
@@ -27,9 +50,10 @@ Create conda environment and activate it:
 ```bash
 conda env create -f environment.yml
 conda activate mags
+pip install -e .
 ```
 
-### Option 2: Python virtual environment (pip)
+#### 2b: Python virtual environment (pip)
 
 ```powershell
 # Change into project directory
@@ -45,7 +69,12 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
+```
+
+After installation, the command-line tool is available as:
+```bash
+mags-visualization --help
 ```
 
 ---
@@ -93,21 +122,49 @@ Optional:
 
 ### Show help
 ```bash
-python main.py --help
+mags-visualization --help
 ```
 
 ### Basic example
 ```bash
-use_case_folder="test-data/marine"
 
-python scripts/main.py \
-  --coverm "$use_case_folder/coverm.tsv" \
-  --checkm "$use_case_folder/checkm.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --drep "$use_case_folder/drep.csv" \
+mags-visualilzation \
+  --coverm test-data/coverm.tsv \
+  --checkm test-data/checkm.tsv \
+  --checkm2 test-data/checkm2.tsv \
+  --gtdb test-data/gtdb.tsv \
+  --drep test-data/drep.csv \
   -o new-test-plots
 ```
+
+### Example for test-data
+
+```bash
+
+mags-visualization \
+  --coverm test-data/coverm.tsv \
+  --checkm test-data/checkm.tsv \
+  --checkm2 test-data/checkm2.tsv \
+  --gtdb test-data/gtdb.tsv \
+  --drep test-data/drep.csv \
+  --quast test-data/quast.tsv \
+  --bakta test-data/bakta.tsv \
+  --metadata test-data/metadata.tsv \
+  --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" \
+  --color_by tax \
+  --tax_level phylum \
+  --top_n 30 \
+  --top_bar_spacer -0.5 \
+  --spacer_meta 2.5 \
+  -o test-plots-run
+```
+
+### How to run automated test-script
+
+```bash
+python scripts/test-script.py
+```
+
 
 ## Plot Configurations
 
