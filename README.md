@@ -6,9 +6,14 @@
 ---
 
 ## Installation
-There are two supported ways to install and use this tool:
-- Recommended (users): install the package via pip and use the command-line tool
-- Alternative (developers): clone the repository and work from source
+This tool is distributed as a Python package with a command-line interface (CLI).
+
+There are two supported ways to install and use it:
+
+- Recommended (users): install the package from source and use the command-line tool
+
+- Alternative (developers): clone the repository and work on the code base
+
 
 ### Prerequisites
 
@@ -16,15 +21,20 @@ There are two supported ways to install and use this tool:
 - Conda (Miniconda, Miniforge, Mambaforge)
 - Git
 
-### Option 1 (recommended): Install via pip
+### Option 1 (recommended): Install from source via pip
+This is the recommended way to install and use the tool.
+
+Clone the repository and change into the project directory:
 
 ```bash
-pip install MAGs-visualization
+git clone https://github.com/alexandrah1704/MAGs-visualization.git
+cd MAGs-visualization
 ```
 
-```md
-> Note: The package is currently not yet published on PyPI.
-> Until then, install from source using `pip install .`
+Install the package using pip:
+
+```bash
+pip install .
 ```
 
 After installation, the command-line tool is available as:
@@ -35,10 +45,9 @@ mags-visualization --help
 This method works independently of the repository structure.
 
 ### Option 2: Install from source (development/testing)
+This option is intended for development, testing, or extending the code.
 
 #### 2a: Conda / Mamba
-
-Clone the repository and change into the project directory:
 
 ```bash
 git clone https://github.com/alexandrah1704/MAGs-visualization.git
