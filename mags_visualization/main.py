@@ -19,6 +19,22 @@ from .bakta_checkm2_plot import bakta_annotation_plot
 from .drep_cluster_plot import drep_cluster_plot
 
 
+def read_table(path, index_col=0):
+    """
+    Robust reader for Galaxy/Planemo inputs.
+    Tries delimiter auto-detection first, then falls back to TSV.
+    """
+    if path is None:
+        return None
+
+    # Try auto-detect separator (comma/tab/semicolon/...)
+    try:
+        return pd.read_csv(path, sep=None, engine="python", index_col=index_col)
+    except Exception:
+        # Fallback: TSV is most common in bioinfo
+        return pd.read_csv(path, sep="\t", engine="python", index_col=index_col)
+
+
 # ---- Argument parsing ---- #
 def positive_int(value):
     ivalue = int(value)
@@ -405,92 +421,53 @@ def parse_arguments(argv=None):
     return args
 
 # ---- Data loading ---- #
-def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, 
-             metadata=None):
+def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metadata=None):
     dfs = {}
-    coverm_dfs = {}
 
-    if checkm.endswith(".csv"):
-        dfs['checkm'] = pd.read_csv(checkm, index_col=0)
-    elif checkm.endswith(".tsv") or checkm.endswith(".tabular"):
-        dfs['checkm'] = pd.read_csv(checkm, sep="\t", index_col=0)
-    else:
-        dfs['checkm'] = pd.read_csv(checkm, index_col=0)
-    print(f"[INFO] checkm loaded: {dfs['checkm'].shape} rows x columns")
-    
-    if checkm2.endswith(".csv"):
-        dfs['checkm2'] = pd.read_csv(checkm2, index_col=0)
-    elif checkm2.endswith(".tsv") or checkm2.endswith(".tabular"):
-        dfs['checkm2'] = pd.read_csv(checkm2, sep="\t", index_col=0)
-    else:
-        dfs['checkm2'] = pd.read_csv(checkm2, index_col=0)
-    print(f"[INFO] checkm2 loaded: {dfs['checkm2'].shape} rows x columns")
-    
-    if drep.endswith(".csv"):
-        dfs['drep'] = pd.read_csv(drep, index_col=0)
-    elif drep.endswith(".tsv") or drep.endswith(".tabular"):
-        dfs['drep'] = pd.read_csv(drep, sep="\t", index_col=0)
-    else:
-        dfs['drep'] = pd.read_csv(drep, index_col=0)
-    print(f"[INFO] drep loaded: {dfs['drep'].shape} rows x columns")
-    
-    if gtdb.endswith(".csv"):
-        dfs['gtdb'] = pd.read_csv(gtdb, index_col=0)
-    elif gtdb.endswith(".tsv") or gtdb.endswith(".tabular"):
-        dfs['gtdb'] = pd.read_csv(gtdb, sep="\t", index_col=0)
-    else:
-        dfs['gtdb'] = pd.read_csv(gtdb, index_col=0)
-    print(f"[INFO] gtdb loaded: {dfs['gtdb'].shape} rows x columns")
-    coverm_dfs = {}
+    # Required
+    dfs["checkm"]  = read_table(checkm,  index_col=0)
+    print(f"[INFO] checkm loaded:  {dfs['checkm'].shape}")
 
-    if os.path.isdir(coverm):
-        files = [f for f in os.listdir(coverm) if not f.startswith('.')]
-        if not files:
-            print(f"[WARN] No files found in coverm directory: {coverm}")
-        for i, file in enumerate(sorted(files)):
-            path = os.path.join(coverm, file)
-            if path.endswith(".csv"):
-                coverm_dfs[f'coverm_{i}'] = pd.read_csv(path, index_col=0)
-            elif path.endswith(".tsv") or path.endswith(".tabular"):
-                coverm_dfs[f'coverm_{i}'] = pd.read_csv(path, sep="\t", index_col=0)
-            else:
-                coverm_dfs[f'coverm_{i}'] = pd.read_csv(path, index_col=0)
-            print(f"[INFO] coverm_{i} loaded: {coverm_dfs[f'coverm_{i}'].shape} rows x columns")
+    dfs["checkm2"] = read_table(checkm2, index_col=0)
+    print(f"[INFO] checkm2 loaded: {dfs['checkm2'].shape}")
+
+    dfs["drep"]    = read_table(drep,   index_col=0)
+    print(f"[INFO] drep loaded:   {dfs['drep'].shape}")
+
+    dfs["gtdb"]    = read_table(gtdb,   index_col=0)
+    print(f"[INFO] gtdb loaded:   {dfs['gtdb'].shape}")
+
+    # Optional: coverm 
+    coverm_dfs = {}
+    if coverm is None:
+        print("[INFO] No coverm provided.")
     else:
-        path = coverm
-        if path.endswith(".csv"):
-            df_cov = pd.read_csv(path, index_col=0)
-        elif path.endswith(".tsv") or path.endswith(".tabular"):
-            df_cov = pd.read_csv(path, sep="\t", index_col=0)
+        if os.path.isdir(coverm):
+            files = [f for f in os.listdir(coverm) if not f.startswith(".")]
+            if not files:
+                print(f"[WARN] No files found in coverm directory: {coverm}")
+            for i, file in enumerate(sorted(files)):
+                path = os.path.join(coverm, file)
+                coverm_dfs[f"coverm_{i}"] = read_table(path, index_col=0)
+                print(f"[INFO] coverm_{i} loaded: {coverm_dfs[f'coverm_{i}'].shape}")
         else:
-            df_cov = pd.read_csv(path, index_col=0)
-        coverm_dfs['coverm_0'] = df_cov
-        print(f"[INFO] coverm_0 loaded (single file): {df_cov.shape} rows x columns")
+            coverm_dfs["coverm_0"] = read_table(coverm, index_col=0)
+            print(f"[INFO] coverm_0 loaded: {coverm_dfs['coverm_0'].shape}")
 
-    dfs['coverm'] = coverm_dfs
+    dfs["coverm"] = coverm_dfs
 
+    # Optional tables (only load + print if provided)
     if bakta is not None:
-        if bakta.endswith(".csv"):
-            dfs["bakta"] = pd.read_csv(bakta, index_col=0)
-        else:
-            dfs["bakta"] = pd.read_csv(bakta, sep="\t", index_col=0)
-        print(f"[INFO] bakta loaded: {dfs['bakta'].shape} rows x columns")
+        dfs["bakta"] = read_table(bakta, index_col=0)
+        print(f"[INFO] bakta loaded:  {dfs['bakta'].shape}")
 
     if quast is not None:
-        if quast.endswith(".csv"):
-            dfs["quast"] = pd.read_csv(quast, index_col=0)
-        else:
-            dfs["quast"] = pd.read_csv(quast, sep="\t", index_col=0)
-        print(f"[INFO] quast loaded: {dfs['quast'].shape} rows x columns")
-    
+        dfs["quast"] = read_table(quast, index_col=0)
+        print(f"[INFO] quast loaded:  {dfs['quast'].shape}")
+
     if metadata is not None:
-        if metadata.endswith(".csv"):
-            dfs['metadata'] = pd.read_csv(metadata, index_col=0)
-        elif metadata.endswith(".tsv") or metadata.endswith(".tabular"):
-            dfs['metadata'] = pd.read_csv(metadata, sep="\t", index_col=0)
-        else:
-            dfs['metadata'] = pd.read_csv(metadata, index_col=0)
-        print(f"[INFO] metadata loaded: {dfs['metadata'].shape} rows x columns")
+        dfs["metadata"] = read_table(metadata, index_col=0)
+        print(f"[INFO] metadata loaded:{dfs['metadata'].shape}")
     else:
         print("[INFO] No metadata file provided.")
 
