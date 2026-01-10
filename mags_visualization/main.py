@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import time
 import os
+import csv
 from .version import __version__
 from .sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from .comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot, metadata_completeness_contamination_plot
@@ -19,19 +20,19 @@ from .bakta_checkm2_plot import bakta_annotation_plot
 from .drep_cluster_plot import drep_cluster_plot
 
 
-def read_table(path, index_col=0):
-    """
-    Robust reader for Galaxy/Planemo inputs.
-    Tries delimiter auto-detection first, then falls back to TSV.
-    """
+def read_table(path, index_col=0, prefer_tsv=False):
     if path is None:
         return None
 
-    # Try auto-detect separator (comma/tab/semicolon/...)
+    if prefer_tsv:
+        try:
+            return pd.read_csv(path, sep="\t", engine="python", index_col=index_col)
+        except Exception:
+            pass
+
     try:
         return pd.read_csv(path, sep=None, engine="python", index_col=index_col)
     except Exception:
-        # Fallback: TSV is most common in bioinfo
         return pd.read_csv(path, sep="\t", engine="python", index_col=index_col)
 
 
@@ -431,11 +432,27 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
     dfs["checkm2"] = read_table(checkm2, index_col=0)
     print(f"[INFO] checkm2 loaded: {dfs['checkm2'].shape}")
 
-    dfs["drep"]    = read_table(drep,   index_col=0)
+    dfs["drep"] = read_table(drep, index_col=None, prefer_tsv=False)
     print(f"[INFO] drep loaded:   {dfs['drep'].shape}")
 
-    dfs["gtdb"]    = read_table(gtdb,   index_col=0)
+
+    dfs["gtdb"] = read_table(gtdb, index_col=0, prefer_tsv=True)
     print(f"[INFO] gtdb loaded:   {dfs['gtdb'].shape}")
+
+    if dfs["drep"] is not None:
+        cols = [c.strip() for c in dfs["drep"].columns.astype(str)]
+        dfs["drep"].columns = cols
+
+    # --- dRep: ensure genome column exists ---
+    if dfs["drep"] is not None:
+        dfs["drep"].columns = [str(c).strip() for c in dfs["drep"].columns]
+
+        if "genome" not in dfs["drep"].columns and "Genome" in dfs["drep"].columns:
+            dfs["drep"] = dfs["drep"].rename(columns={"Genome": "genome"})
+
+        if "genome" not in dfs["drep"].columns:
+            dfs["drep"] = dfs["drep"].reset_index().rename(columns={"index": "genome"})
+
 
     # Optional: coverm 
     coverm_dfs = {}
@@ -475,18 +492,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
 
 
 def load_single_df(file_path):
-    if file_path.endswith('.csv'):
-        df = pd.read_csv(file_path, index_col=0)
-        print(f"[INFO] {file_path} loaded: {df.shape} rows x columns")
-        return df
-    elif file_path.endswith('.tsv') or file_path.endswith('.tabular'):
-        df = pd.read_csv(file_path, sep='\t', index_col=0)
-        print(f"[INFO] {file_path} loaded: {df.shape} rows x columns")
-        return df
-    else:
-        df = pd.read_csv(file_path, index_col=0)
-        print(f"[INFO] {file_path} loaded: {df.shape} rows x columns")
-        return df
+    return read_table(file_path, index_col=0)
 
     
 def merged_coverm(coverm_dfs):
