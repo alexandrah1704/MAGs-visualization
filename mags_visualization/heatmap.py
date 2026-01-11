@@ -294,7 +294,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
         mags_per_rank.loc["Others"] = merged.loc[other_mask, "Genome"].nunique()
 
     if log_top:
-        top_vals = mags_per_rank.replace(0, np.nan).apply(np.log10)
+        top_vals = np.log10(pd.to_numeric(mags_per_rank, errors="coerce").replace(0, np.nan))
         y_label = "log$_{10}$(MAGs / rank)"
     else:
         top_vals = mags_per_rank.astype(float)
@@ -503,17 +503,20 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
         ax_meta_bars.yaxis.set_visible(False)
     
+
+    top_vals_num = pd.to_numeric(top_vals, errors="coerce").to_numpy(dtype=float)
+
     # ---- top bar ----
     x_pos = np.linspace(0, n_cols - 1, n_cols) * top_bar_spacing
-    ax_top.bar(x_pos, top_vals.values, color="#6b6b6b", edgecolor="#444444",
-               width=top_bar_width, align="center")
+    ax_top.bar(x_pos, top_vals_num, color="#6b6b6b", edgecolor="#444444",
+            width=top_bar_width, align="center")
     ax_top.set_xlim(-0.5, n_cols - 0.5)
     ax_top.set_ylabel("log$_{10}$(MAGs/Rank)")
     ax_top.set_xticks([])
 
     # ---- Dynamic grid/ticks setup ----
-    if np.isfinite(top_vals).any():
-        ymax = float(np.nanmax(top_vals.values))
+    if np.isfinite(top_vals_num).any():
+        ymax = float(np.nanmax(top_vals_num))
 
         if log_top:
             yceil = int(np.ceil(ymax))
