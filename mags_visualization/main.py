@@ -20,20 +20,38 @@ from .bakta_checkm2_plot import bakta_annotation_plot
 from .drep_cluster_plot import drep_cluster_plot
 
 
-def read_table(path, index_col=0, prefer_tsv=False):
+def read_table(path, index_col=None, prefer_tsv=None):
     if path is None:
         return None
 
-    if prefer_tsv:
-        try:
-            return pd.read_csv(path, sep="\t", engine="python", index_col=index_col)
-        except Exception:
-            pass
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        first = fh.readline()
 
-    try:
-        return pd.read_csv(path, sep=None, engine="python", index_col=index_col)
-    except Exception:
-        return pd.read_csv(path, sep="\t", engine="python", index_col=index_col)
+    # If caller explicitly prefers TSV, respect it
+    if prefer_tsv is True:
+        df = pd.read_csv(path, sep="\t", engine="python")
+    elif prefer_tsv is False:
+        # Prefer CSV, fallback to sniffing
+        try:
+            df = pd.read_csv(path, sep=",", engine="python")
+        except Exception:
+            df = pd.read_csv(path, sep=None, engine="python")
+    else:
+        # Auto mode: tabs -> TSV else CSV/sniff
+        if "\t" in first:
+            df = pd.read_csv(path, sep="\t", engine="python")
+        else:
+            try:
+                df = pd.read_csv(path, sep=",", engine="python")
+            except Exception:
+                df = pd.read_csv(path, sep=None, engine="python")
+
+    # Only set index if requested
+    if index_col is not None and df.shape[1] > index_col:
+        df = df.set_index(df.columns[index_col])
+
+    return df
+
 
 
 # ---- Argument parsing ---- #
