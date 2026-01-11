@@ -304,10 +304,19 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
         top_vals = pd.Series([0] * len(mags_per_rank), index=mags_per_rank.index)
 
     # ---- Right bar ----
-    cov_for_count = cov.set_index("Genome")[
-        [c for c in cov.columns if c not in ["Genome", "user_genome", rank]]]
-    mags_per_sample = (
-        (cov_for_count > present_threshold).sum(axis=0).reindex(heat.index).fillna(0).astype(int))
+    sample_cols = [c for c in cov.columns if c not in ["Genome", "user_genome", rank]]
+
+    cov_for_count = cov.set_index("Genome")[sample_cols]
+
+    # Count MAGs present per sample
+    mags_per_sample = (cov_for_count > present_threshold).sum(axis=0)
+
+    # Align to heatmap rows
+    mags_per_sample = mags_per_sample.reindex(heat.index)
+    mags_per_sample = pd.to_numeric(mags_per_sample, errors="coerce").fillna(0).astype(int)
+
+    # y positions must match heat rows
+    ypos = np.arange(len(heat.index))
 
     # ---- Process all metadata columns ----
     all_metadata = []
@@ -510,7 +519,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     x_pos = np.linspace(0, n_cols - 1, n_cols) * top_bar_spacing
     ax_top.bar(x_pos, top_vals_num, color="#6b6b6b", edgecolor="#444444",
             width=top_bar_width, align="center")
-    ax_top.set_xlim(-0.5, n_cols - 0.5)
+    ax_top.set_xlim(x_pos.min() - 0.5, x_pos.max() + 0.5)
     ax_top.set_ylabel("log$_{10}$(MAGs/Rank)")
     ax_top.set_xticks([])
 
