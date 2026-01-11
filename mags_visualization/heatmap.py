@@ -286,6 +286,10 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
     n_rows, n_cols = heat.shape
 
+    if n_rows == 0 or n_cols == 0:
+        print(f"[WARN] Heatmap is empty (rows={n_rows}, cols={n_cols}). Skipping heatmap plot.")
+        return
+
     print("[DEBUG] heat shape:", heat.shape)
     print("[DEBUG] heat rows head:", list(heat.index[:3]))
     print("[DEBUG] heat cols head:", list(heat.columns[:3]))
@@ -530,6 +534,11 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
 
     # ---- top bar ----
     x_pos = np.linspace(0, n_cols - 1, n_cols) * top_bar_spacing
+    if x_pos.size == 0:
+        print("[WARN] No columns for top bar (x_pos empty). Disabling top bar axis.")
+        ax_top.set_axis_off()
+    else:
+        ax_top.set_xlim(x_pos.min() - 0.5, x_pos.max() + 0.5)
     ax_top.bar(x_pos, top_vals_num, color="#6b6b6b", edgecolor="#444444",
             width=top_bar_width, align="center")
     ax_top.set_xlim(x_pos.min() - 0.5, x_pos.max() + 0.5)
