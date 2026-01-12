@@ -177,7 +177,7 @@ def parse_arguments(argv=None):
         '-n',
         '--top_n_counts',
         '--top_n',
-        help='For the rank distribution, only plot the top n. Min: 5 DEFAULT:5',
+        help='For the rank distribution, only plot the top n. DEFAULT:30',
         type=positive_int,
         dest="n",
         default=30
