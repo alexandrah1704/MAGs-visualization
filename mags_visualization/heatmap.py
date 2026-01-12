@@ -239,14 +239,6 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     # Join MAG
     merged = cov.merge(gtdb, left_on="user_genome", right_index=True, how="left").dropna(subset=[rank])
     value_cols = [c for c in cov.columns if c not in ["Genome", "user_genome", rank]]
-    
-    print("[DEBUG] merged shape:", merged.shape)
-    print("[DEBUG] merged columns:", list(merged.columns))
-    print("[DEBUG] rank:", rank)
-    if rank in merged.columns:
-        print("[DEBUG] merged[rank] unique head:", merged[rank].astype(str).unique()[:10])
-    else:
-        print("[ERROR] rank column missing in merged!")
 
     # ---- Long form for heatmap ----
     long_df = merged.melt(id_vars=[rank], value_vars=[c for c in merged.columns if c in value_cols],
@@ -289,10 +281,6 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     if n_rows == 0 or n_cols == 0:
         print(f"[WARN] Heatmap is empty (rows={n_rows}, cols={n_cols}). Skipping heatmap plot.")
         return
-
-    print("[DEBUG] heat shape:", heat.shape)
-    print("[DEBUG] heat rows head:", list(heat.index[:3]))
-    print("[DEBUG] heat cols head:", list(heat.columns[:3]))
 
     # ---- Top bar ----
     mags_per_rank = (merged.groupby(rank)["Genome"]

@@ -27,17 +27,17 @@ def read_table(path, index_col=None, prefer_tsv=None):
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         first = fh.readline()
 
-    # If caller explicitly prefers TSV, respect it
+    # If caller explicitly prefers TSV
     if prefer_tsv is True:
         df = pd.read_csv(path, sep="\t", engine="python")
     elif prefer_tsv is False:
-        # Prefer CSV, fallback to sniffing
+        # Prefer CSV
         try:
             df = pd.read_csv(path, sep=",", engine="python")
         except Exception:
             df = pd.read_csv(path, sep=None, engine="python")
     else:
-        # Auto mode: tabs -> TSV else CSV/sniff
+        # Auto mode: tabs -> TSV else CSV
         if "\t" in first:
             df = pd.read_csv(path, sep="\t", engine="python")
         else:
@@ -53,7 +53,6 @@ def read_table(path, index_col=None, prefer_tsv=None):
     return df
 
 
-
 # ---- Argument parsing ---- #
 def positive_int(value):
     ivalue = int(value)
@@ -65,8 +64,8 @@ def parse_arguments(argv=None):
 
     parser = argparse.ArgumentParser(
         prog="MAGs-visualization",
-        description="TODO",
-        usage="TODO",
+        description="Visualize and analyse MAGs (Metagenome-Assembled Genomes).",
+        usage="mags-visualization [OPTIONS]",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         add_help=True,
     )
@@ -181,7 +180,7 @@ def parse_arguments(argv=None):
         help='For the rank distribution, only plot the top n. Min: 5 DEFAULT:5',
         type=positive_int,
         dest="n",
-        default=5
+        default=30
     )
 
     parser.add_argument(
