@@ -299,13 +299,13 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
 
     if rep_quality_available:
         # [sample names | bars | spacer | tax... | spacer | heatmap]
-        width_ratios = [0.10, 2, 0.02] + [tax_levels_space] * n_tax + [0.04, 0.4]
+        width_ratios = [0.03, 2, 0.02] + [tax_levels_space] * n_tax + [0.04, 0.4]
         gs = gridspec.GridSpec(
             1,
             len(width_ratios),
             figure=fig,
             width_ratios=width_ratios,
-            wspace=0.08,
+            wspace=0.04,
         )
         ax_samples = fig.add_subplot(gs[0, 0])
         ax_bars = fig.add_subplot(gs[0, 1])
@@ -381,9 +381,15 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
     ax_samples.set_xlim(0, 1)
     ax_samples.set_ylim(-0.5, len(cluster_data) - 0.5)
     ax_samples.set_yticks(y_pos)
-    ax_samples.set_yticklabels(cluster_data['representative_display'].values, fontsize=8)
+    ax_samples.set_yticklabels(cluster_data['representative_display'].values, fontsize=8, ha='right')
+    ax_samples.tick_params(
+        axis="y",
+        which="both",
+        length=10,
+        width=0.4,
+        pad=4
+    )
     ax_samples.set_xticks([])
-    ax_samples.invert_xaxis()
 
     for spine in ax_samples.spines.values():
         spine.set_visible(False)
