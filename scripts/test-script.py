@@ -23,6 +23,7 @@ def main() -> int:
         # sys.executable,
         # str(main_py),
         sys.executable, "-m", "mags_visualization.main",
+        "all",
 
         "--coverm", str(use_case_folder / "coverm.tsv"),
         "--checkm", str(use_case_folder / "checkm.tsv"),
