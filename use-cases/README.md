@@ -9,13 +9,15 @@ so that the example paths resolve correctly.
 If the command is not available, install the package first (['README.md'](../README.md))
 
 # Bash
-## Bee
+## Bee Gut Microbiome
 
 ```bash
 use_case_folder="bee-use-case"
 ```
 
 ### Sample heatmap
+
+* Genus
 
 ```bash
 mags-visualization sample-heatmap \
@@ -30,6 +32,8 @@ mags-visualization sample-heatmap \
   --no_log \
   --top_bar_height 2.0
 ```
+
+* Specis
 
 ```bash
 mags-visualization sample-heatmap \
@@ -247,26 +251,40 @@ mags-visualization taxa-sankey \
   --output out
 ```
 
-## Termite
+## Termite Head Microbiome
 
 ```bash
-use_case_folder="termite-use-case/data"
+use_case_folder="termite-use-case"
 ```
 
 ### Sample heatmap
 
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/coverm.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --metadata "$use_case_folder/metadata.tsv" \
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --metadata "$use_case_folder/data/metadata.tsv" \
   --meta_cols "Species" "Casts" "Colony" \
   --tax_level genus \
   --no_log \
   --spacer_meta 4.5 \
   --top_bar_height 1.5 \
   --hspace 0.08 \
-  --output out
+  --output "$use_case_folder/plots"
+```
+
+```bash
+mags-visualization sample-heatmap \
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --metadata "$use_case_folder/data/metadata.tsv" \
+  --meta_cols "Species" "Casts" "Colony" \
+  --tax_level species \
+  --no_log \
+  --spacer_meta 4.5 \
+  --top_bar_height 1.5 \
+  --hspace 0.08 \
+  --output "$use_case_folder/plots"
 ```
 
 ### dRep cluster plot
