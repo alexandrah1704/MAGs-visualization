@@ -12,26 +12,37 @@ If the command is not available, install the package first (['README.md'](../REA
 ## Bee
 
 ```bash
-use_case_folder="bee-use-case/data"
+use_case_folder="bee-use-case"
 ```
 
 ### Sample heatmap
 
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/coverm.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --metadata "$use_case_folder/metadata.tsv" \
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --metadata "$use_case_folder/data/metadata.tsv" \
   --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" \
   --tax_level genus \
   --top_bar_spacer -1.0 \
   --spacer_meta 2.5 \
-  --output out
+  --output "$use_case_folder/plots" \
+  --no_log \
+  --top_bar_height 2.0
 ```
 
 ```bash
---no_log \
---top_bar_height 2.0
+mags-visualization sample-heatmap \
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --metadata "$use_case_folder/data/metadata.tsv" \
+  --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" \
+  --tax_level species \
+  --top_bar_spacer -1.0 \
+  --spacer_meta 2.5 \
+  --output "$use_case_folder/plots" \
+  --no_log \
+  --top_bar_height 2.0
 ```
 
 ### dRep cluster plot
