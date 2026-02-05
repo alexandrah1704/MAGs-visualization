@@ -106,7 +106,7 @@ All plots are saved in a user-defined output directory.
 
 ## Input files
 
-Below are the inputs for a complete visualization run:
+Below are the inputs for a visualization run:
 
 | Argument           | Description                           |
 |--------------------|---------------------------------------|
@@ -127,6 +127,56 @@ Optional:
 | --metadata_heatmap_new | Metadata for heatmap visualization    |
 | --amber                | CAMI Amber binning evaluation         |
 
+### Input files per subcommand
+
+#### sample-heatmap
+- `--coverm` (required)
+- `--gtdb` (required)
+- `--metadata` (optional)
+- `--meta_cols` (optional)
+
+#### comp-conta
+- `--checkm` (required)
+- `--checkm2` (required)
+- `--gtdb` (required for `--mode tax`)
+- `--metadata` + `--meta_col` (required for `--mode meta`)
+
+#### drep-cluster
+- `--drep` (required)
+- `--gtdb` (required)
+- `--checkm2`, `--quast`, `--bakta` (required for annotated heatmap)
+
+#### assembly-quality
+- `--quast` (required)
+- `--checkm2` (required)
+- `--gtdb` (required)
+
+#### bakta-annotation
+- `--bakta` (required)
+- `--checkm2` (required)
+
+#### taxa-sankey
+- `--gtdb` (required)
+
+
+## Command structure
+
+The command-line interface is organized into **subcommands**.
+Each subcommand generates exactly **one type of plot** and only shows the parameters relevant for that plot.
+
+```bash
+mags-visualization <subcommand> [OPTIONS]
+```
+
+Available subcommands:
+- sample-heatmap - MAG detection heatmap per sample
+- drep-cluster -dRep cluster visualization
+- comp-conta - completeness/contamination plots
+- taxa-sankey - GTDB taxonomy sankey plots
+- assembly-quality - QUAST-based assembly quality plots
+- bakta-annotation - Bakta annontation plots
+- all - legacy mode (runs multiple plots in one command)
+
 ## Command-Line usage
 
 ### Show help
@@ -134,23 +184,26 @@ Optional:
 mags-visualization --help
 ```
 
-### Basic example
+### Show help for a specific plot
+```bash
+mags-visualization sample-heatmap --help
+mags-visualization drep-cluster --help
+```
+
+### Example: sample heatmap
 ```bash
 
-mags-visualilzation \
+mags-visualilzation sample-heatmap \
   --coverm test-data/coverm.tsv \
-  --checkm test-data/checkm.tsv \
-  --checkm2 test-data/checkm2.tsv \
   --gtdb test-data/gtdb.tsv \
-  --drep test-data/drep.csv \
-  -o new-test-plots
+  --output out/sample-heatmap
 ```
 
 ### Example for test-data
 
 ```bash
 
-mags-visualization \
+mags-visualization all \
   --coverm test-data/coverm.tsv \
   --checkm test-data/checkm.tsv \
   --checkm2 test-data/checkm2.tsv \
@@ -222,6 +275,9 @@ To show in the heatmap more than one metadata column:
 ```bash
 --meta_cols weather temp ground # example columns
 ```
+
+
+## The following options are only available for the corresponding subcommands (e.g. `sample-heatmap`, `bakta-annotation`, `assembly-quality`)
 
 ## Heatmap Options
 ### Plot features
