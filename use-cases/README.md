@@ -102,20 +102,31 @@ mags-visualization taxa-sankey \
   --output out
 ```
 
-## Marine
+## Macroalgal microbiome
 
 ```bash
-use_case_folder="marine-use-case/data"
+use_case_folder="marine-use-case"
 ```
 
 ### Sample heatmap
 
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/coverm.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --tax_level genus \
-  --output out
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --tax_level family \
+  --no_log \
+  --top_bar_height 2.0 \
+  --top_bar_spacer -1 \
+  --output "$use_case_folder/plots"
+```
+
+```bash
+mags-visualization sample-heatmap \
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --tax_level species \
+  --output "$use_case_folder/plots"
 ```
 
 ### dRep cluster plot
@@ -287,6 +298,20 @@ mags-visualization sample-heatmap \
   --output "$use_case_folder/plots"
 ```
 
+```bash
+mags-visualization sample-heatmap \
+  --coverm "$use_case_folder/data/coverm.tsv" \
+  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --metadata "$use_case_folder/data/metadata.tsv" \
+  --meta_cols "Species" "Casts" "Colony" \
+  --tax_level family \
+  --no_log \
+  --spacer_meta 4.5 \
+  --top_bar_height 1.5 \
+  --hspace 0.08 \
+  --output "$use_case_folder/plots"
+```
+
 ### dRep cluster plot
 
 ```bash
@@ -335,7 +360,7 @@ mags-visualization taxa-sankey \
 If you want to use powershell instead of bash, it's just a different syntax.
 In the following examples the **subcommand** "all" is used, which produces all plots.
 
-## Marine
+## Macroalgal microbiome
 
 ```powershell
 $use_case_folder = "marine-use-case\data"
