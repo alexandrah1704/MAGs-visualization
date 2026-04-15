@@ -35,3 +35,24 @@ def normalize_genome_id(s: str) -> str:
 def normalize_genome_series(s: pd.Series) -> pd.Series:
     """Pandas Series normalizing"""
     return s.astype(str).map(normalize_genome_id)
+
+
+def format_genome_display(s: str) -> str:
+    """
+    Convert a normalized genome ID.
+
+    Examples:
+    - srr24759597_bin_73064_fasta -> SRR24759597_bin_73064
+    - err9966616_bin_10_fasta     -> ERR9966616_bin_10
+    - group_2_bin_200650_fasta    -> group_2_bin_200650
+    """
+    s = normalize_genome_id(s)
+
+    # remove internal suffix used for matching
+    if s.endswith("_fasta"):
+        s = s[:-6]
+
+    # uppercase accession-style prefixes like srr, err, drr, ers, ...
+    s = re.sub(r"^([a-z]+)(?=\d)", lambda m: m.group(1).upper(), s)
+
+    return s
