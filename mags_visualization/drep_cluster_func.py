@@ -531,7 +531,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
 
     representatives = cluster_data["representative"].tolist()
 
-    # ---- Plot 1: Core functions (highest mean completeness ----
+    # ---- Plot 1: Core functions (highest mean completeness) ----
     heatmap_df_core, module_meta_core, class_blocks_core = prepare_pathway_matrix(
         pathway_df=pathway_df,
         representatives=representatives,

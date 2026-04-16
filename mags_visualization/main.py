@@ -229,7 +229,7 @@ def build_parser():
     layout.add_argument("--top_bar_spacer", type=float, default=0.0, dest="top_bar_spacer")
 
     # ---- drep-cluster-annotation ----
-    p = sub.add_parser("drep-cluster", help="Create the dRep cluster plot.")
+    p = sub.add_parser("drep-cluster-annot", help="Create the dRep cluster plot.")
     p.add_argument("--drep", required=True, dest="drep_file")
     p.add_argument("--gtdb", required=True, dest="gtdb_file")
     p.add_argument("--checkm2", dest="checkm2_file", default=None)
@@ -810,7 +810,7 @@ def main(argv=None):
 
     if args.command == "sample-heatmap":
         run_sample_heatmap(args)
-    elif args.command == "drep-cluster":
+    elif args.command == "drep-cluster-annot":
         run_drep_cluster(args)
     elif args.command == "drep-cluster-func":
         run_drep_cluster_func(args)
