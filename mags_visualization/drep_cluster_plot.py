@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import gridspec, cm
 from matplotlib.colors import Normalize
 from matplotlib.patches import Patch
-from .id_normalizer import normalize_genome_id
+from .id_normalizer import normalize_genome_id, format_genome_display
 
 
 def extract_rank(tax, rank: str):
@@ -128,7 +128,7 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
 
 
     cluster_data = cluster_counts.merge(cluster_reps, on='secondary_cluster', how='left')
-    cluster_data['representative_display'] = cluster_data['representative'].str.replace('_fasta', '', regex=False).str.replace('srr', 'SRR', regex=False)
+    cluster_data['representative_display'] = cluster_data['representative'].apply(format_genome_display)
     
     # Columns to merge from gtdb
     cols_to_merge = ['user_genome_normalized'] + list(tax_levels)
