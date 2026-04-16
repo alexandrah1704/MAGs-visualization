@@ -9,8 +9,6 @@ from .version import __version__
 from .sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from .comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot, metadata_completeness_contamination_plot
 from .heatmap import mag_heatmap
-from .assembly_quality import assembly_quality_plot
-from .bakta_checkm2_plot import bakta_annotation_plot
 from .drep_cluster_plot import drep_cluster_plot
 from .drep_cluster_func import drep_cluster_functional_plot
 from .pathway_module_heatmap import pathway_module_heatmap
@@ -303,34 +301,6 @@ def build_parser():
     p.add_argument("--rank", choices=tax_levels, default="phylum", dest="rank")
     p.add_argument("-o", "--output", required=True, dest="output")
 
-    # ---- assembly-quality ----
-    p = sub.add_parser("assembly-quality", help="Create assembly quality plots (QUAST).")
-    p.add_argument("--quast", required=True, dest="quast_file")
-    p.add_argument("--checkm2", required=True, dest="checkm2_file")
-    p.add_argument("--gtdb", dest="gtdb_file", default=None)
-    p.add_argument("--metadata", dest="metadata_file", default=None)
-    p.add_argument("--meta_col", dest="meta_col", default=None)
-    p.add_argument("--tax_level", choices=tax_levels, default="phylum", dest="tax_level")
-    p.add_argument("--column_choice", nargs="+", metavar="METRIC", dest="column_choice")
-    p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
-    p.add_argument("-o", "--output", required=True, dest="output")
-    p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
-
-    # ---- bakta-annotation ----
-    p = sub.add_parser("bakta-annotation", help="Create Bakta annotation plots.")
-    p.add_argument("--bakta", required=True, dest="bakta_file")
-    p.add_argument("--checkm2", required=True, dest="checkm2_file")
-    p.add_argument("--gtdb", dest="gtdb_file", default=None)
-    p.add_argument("--metadata", dest="metadata_file", default=None)
-    p.add_argument("--meta_col", dest="meta_col", default=None)
-    p.add_argument("--tax_level", choices=tax_levels, default="phylum", dest="tax_level")
-    p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--bakta_metrics", nargs="+", metavar="METRIC", default=None, dest="bakta_metrics")
-    p.add_argument("--ratio", action="store_true", dest="ratio")
-    p.add_argument("-o", "--output", required=True, dest="output")
-    p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
-
     # ---- all (optional) ----
     p = sub.add_parser("all", help="Run all plots (legacy behaviour).")
     p.add_argument("--coverm", dest="coverm_path", default=None)
@@ -353,8 +323,6 @@ def build_parser():
     p.add_argument("--meta_bin_width", type=float, default=5.0, dest="meta_bin_width")
     p.add_argument("--column_choice", nargs="+", metavar="METRIC", dest="column_choice")
     p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--bakta_metrics", nargs="+", metavar="METRIC", default=None, dest="bakta_metrics")
-    p.add_argument("--ratio", action="store_true", dest="ratio")
     p.add_argument("--tax_levels_space", type=float, default=0.3, dest="tax_levels_space")
     p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
     p.add_argument("-o", "--output", required=True, dest="output")
@@ -584,75 +552,6 @@ def run_taxa_sankey(args):
     taxa_sanky_rank(dfs["gtdb"], args.output, args.rank)
 
 
-def run_assembly_quality(args):
-    dfs = load_dfs(
-        coverm=None,
-        checkm=None,
-        checkm2=args.checkm2_file,
-        gtdb=args.gtdb_file,
-        drep=None,
-        quast=args.quast_file,
-        metadata=args.metadata_file,
-    )
-    check_path(args.output)
-    assembly_quality_plot(
-        dfs,
-        args.output,
-        metrics=args.column_choice,
-        color_by=args.color_by,
-        tax_rank=args.tax_level,
-        meta_col=args.meta_col,
-        fig_size=_fig_size_tuple(args) or (5, 5),
-        fmt=args.format,
-    )
-
-
-def _bakta_metrics_dict(args):
-    if not args.bakta_metrics:
-        return None
-
-    user_metrics = [m.strip().lower() for m in args.bakta_metrics]
-    bakta_metric_map = {
-        "cds": ("CDS", "cdss"),
-        "hypotheticals": ("Hypotheticals", "hypotheticals"),
-        "rrnas": ("rRNAs", "rrnas"),
-        "trnas": ("tRNAs", "trnas"),
-        "crispr": ("CRISPR", "crispr arrays"),
-        "pseudogenes": ("Pseudogenes", "pseudogenes"),
-    }
-
-    metrics_dict = {}
-    for m in user_metrics:
-        if m in bakta_metric_map:
-            disp, col = bakta_metric_map[m]
-            metrics_dict[disp] = col
-
-    return metrics_dict or None
-
-
-def run_bakta_annotation(args):
-    dfs = load_dfs(
-        coverm=None,
-        checkm=None,
-        checkm2=args.checkm2_file,
-        gtdb=args.gtdb_file,
-        drep=None,
-        bakta=args.bakta_file,
-        metadata=args.metadata_file,
-    )
-    check_path(args.output)
-
-    bakta_annotation_plot(
-        dfs,
-        args.output,
-        metrics=_bakta_metrics_dict(args),
-        color_by=args.color_by,
-        tax_rank=args.tax_level,
-        meta_col=args.meta_col,
-        plot_ratio=args.ratio,
-    )
-
-
 def run_all(args):
     """
     Runs all what it can based on provided inputs.
@@ -713,6 +612,7 @@ def run_all(args):
             fig_size=comp_fig_size or (10, 8), fmt=args.format
         )
 
+    # drep-cluster-annot
     if dfs.get("drep") is not None and dfs.get("gtdb") is not None:
         run_clean(
             drep_cluster_plot,
@@ -725,6 +625,7 @@ def run_all(args):
             bakta_df=dfs.get("bakta"),
        )
     
+    # drep-cluster-func
     if dfs.get("drep") is not None and dfs.get("gtdb") is not None and dfs.get("pathways") is not None:
         run_clean(
             drep_cluster_functional_plot,
@@ -740,6 +641,7 @@ def run_all(args):
             tax_levels_space=args.tax_levels_space,
         )
     
+    # pathway-heatmap-completeness
     if dfs.get("pathways") is not None:
         run_clean(
             pathway_module_heatmap,
@@ -757,6 +659,7 @@ def run_all(args):
             top_representatives=args.top_representatives,
         )
 
+    # heatmap
     if dfs.get("coverm") is not None and dfs.get("gtdb") is not None:
         run_clean(
             mag_heatmap,
@@ -779,29 +682,6 @@ def run_all(args):
             log_top=not args.no_log,
         )
 
-    if dfs.get("quast") is not None and dfs.get("checkm2") is not None:
-        run_clean(
-            assembly_quality_plot,
-            dfs, args.output,
-            metrics=args.column_choice,
-            color_by=args.color_by,
-            tax_rank=aq_tax_rank,
-            meta_col=args.meta_col,
-            fig_size=comp_fig_size or (5, 5),
-            fmt=args.format,
-        )
-
-    if dfs.get("bakta") is not None and dfs.get("checkm2") is not None:
-        run_clean(
-            bakta_annotation_plot,
-            dfs, args.output,
-            metrics=_bakta_metrics_dict(args),
-            color_by=args.color_by,
-            tax_rank=aq_tax_rank,
-            meta_col=args.meta_col,
-            plot_ratio=args.ratio,
-        )
-
 
 # ---- Main ---- #
 def main(argv=None):
@@ -820,10 +700,6 @@ def main(argv=None):
         run_comp_conta(args)
     elif args.command == "taxa-sankey":
         run_taxa_sankey(args)
-    elif args.command == "assembly-quality":
-        run_assembly_quality(args)
-    elif args.command == "bakta-annotation":
-        run_bakta_annotation(args)
     elif args.command == "all":
         run_all(args)
     else:
