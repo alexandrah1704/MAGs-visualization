@@ -10,15 +10,19 @@ from .drep_cluster_func import prepare_cluster_data, simplify_pathway_class
 
 def select_top_modules(df: pd.DataFrame, top_modules: int | None = None, mode: str = "mean") -> pd.DataFrame:
     """
-    Filter pathway data ranked by mean completeness or variance across representatives.
+    Select the most relevant pathway modules for plotting.
+    This function ranks modules across all genomes using:
+    - mean: modules with the highest average completeness (core functions)
+    - variance: module with the largest variation in completeness (differential functions)
     
-    Select modules based on:
-    - 'mean' = core functions
-    - 'variance' = differences between clusters
+    Returns filtered dataframe containing only selected modules.
+    
     """
     if top_modules is None:
         return df.copy()
-
+    
+    # Build matrix
+    # rows = genomes, columns = modules, values = completeness
     pivot = df.pivot_table(
         index="contig",
         columns="module_accession",
@@ -42,15 +46,18 @@ def select_top_modules(df: pd.DataFrame, top_modules: int | None = None, mode: s
 def get_plot_matched_representatives(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, pathway_df: pd.DataFrame,
     top_representatives: int, tax_levels=("phylum",)) -> list[str]:
     """
-    Reproduce same set of representative genomes as in drep_cluster_functional_plot.
+    Get the same representative genomes used in the dRep functional cluster plot.
     Ensures that heatmap shows exactly the same MAGs as in the other heatmap.
 
-    1. build cluster representatives with prepare_cluster_data
-    2. remove representatives without pathway data
-    3. keep top N clusters
+    1. Build cluster representatives using prepare_cluster_data()
+    2. Remove representatives without pathway data
+    3. Keep top N largest clusters
+
+    Returns list of representative IDs in plotting order.
     """
     pw_genomes = set(pathway_df["contig"].apply(normalize_genome_id).unique())
 
+    # Fetch more clusters than needed, because some will be filtered out later
     cluster_data, _, _ = prepare_cluster_data(
         drep_df=drep_df,
         gtdb_df=gtdb_df,
@@ -74,7 +81,8 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
     gtdb_df: pd.DataFrame = None, representatives_only: bool = False,
     top_representatives: int | None = None):
     """
-    Build completeness matrix and pathway class block für heatmap.
+    Prepare all data needed to draw the pathway module heatmap.
+    Build completeness matrix and pathway class block for heatmap.
     """
     df = pathway_df.copy()
 
@@ -101,6 +109,7 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
         
         pw_genomes = set(df["contig_normalized"].unique())
 
+        # Build cluster data and keep larger set first
         cluster_data, _, _ = prepare_cluster_data(
             drep_df=representatives_df,
             gtdb_df=gtdb_df,
@@ -113,18 +122,20 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
             cluster_data["representative"].isin(pw_genomes)
             ].reset_index(drop=True)
 
-        # prepare_cluster_data sorts ascending
+        # prepare_cluster_data sorts in ascending order, keep largest clusters with tail()
         cluster_data = cluster_data.tail(top_representatives).reset_index(drop=True)
 
         representatives = cluster_data["representative"].tolist()
         row_order = [r for r in representatives if r in set(df["contig_normalized"])]
         rep_to_size = dict(zip(cluster_data["representative"], cluster_data["n_members"]))
     else:
+        # If all MAGs, sort them alphabetically
         row_order = sorted(df["contig_normalized"].dropna().unique().tolist())
         rep_to_size = {}
 
     df = select_top_modules(df, top_modules=top_modules, mode=mode)
 
+    # Sort by pathway class
     module_meta = (
         df[["module_accession", "pathway_name", "pathway_class_simple"]]
         .drop_duplicates()
@@ -134,6 +145,7 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
 
     module_order = module_meta["module_accession"].tolist()
 
+    # Build heatmap matrix: rows = genomes, columns = modules, values = completeness
     heatmap_df = (
         df.pivot_table(
             index="contig_normalized",
@@ -168,12 +180,11 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     row_fontsize: int = 8, representatives_df: pd.DataFrame = None, gtdb_df: pd.DataFrame = None,
     representatives_only: bool = False, top_representatives: int | None = None):
     """
-    Create MAG vs Function heatmap.
+    Create a heatmap shwoing pathway/module completeness across MAGs.
 
-    Rows: MAGs / contigs
-    Columns: module_accession
-    Values: Pathway completeness (0% - 100%)
-    Grouping: pathway_class
+    - rows: MAGs / contigs
+    - columns: module_accession
+    - values: pathway completeness (0% - 100%)
     """
     os.makedirs(output_path, exist_ok=True)
 
@@ -215,10 +226,12 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     ax.set_xlim(-0.5, n_cols - 0.5)
     ax.set_ylim(n_rows - 0.5, -0.5)
 
+    # MAG labels on the y-axis
     ax.set_yticks(np.arange(n_rows))
     display_names = [format_genome_display(x) for x in heatmap_df.index]
     ax.set_yticklabels(display_names, fontsize=row_fontsize)
 
+    # Module labels on x-axis if wanted
     ax.set_xticks(np.arange(n_cols))
     if show_module_labels:
         ax.set_xticklabels(
@@ -230,6 +243,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
         ax.set_xticklabels([])
     ax.tick_params(axis="x", bottom=True, labelbottom=True, top=False, length=2)
 
+    # Grid lines between heatmap cells
     ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
     ax.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
     ax.grid(which="minor", color="#bdbdbd", linewidth=0.35)
@@ -253,6 +267,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     label_levels = [-1.55, -2.25, -2.95, -3.65]
     line_bottom_pad = 0.01
 
+    # Colored bars and class labels above heatmap
     for i, (cls, start, end) in enumerate(class_blocks):
         center = (start + end) / 2.0
         width = (end - start) + 1

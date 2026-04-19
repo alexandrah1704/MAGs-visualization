@@ -6,34 +6,7 @@ from matplotlib import gridspec, cm
 from matplotlib.colors import Normalize
 from matplotlib.patches import Patch
 from .id_normalizer import normalize_genome_id, format_genome_display
-
-
-def extract_rank(tax, rank: str):
-    """Extract a GTDB rank from a taxonomy string."""
-    if pd.isna(tax):
-        return "Unclassified"
-    
-    prefix_map = {
-        "domain": "d__",
-        "phylum": "p__",
-        "class": "c__",
-        "order": "o__",
-        "family": "f__",
-        "genus": "g__",
-        "species": "s__",
-    }
-    
-    prefix = prefix_map.get(rank.lower())
-    if not prefix:
-        raise ValueError(f"Invalid rank '{rank}'. Choose one of {list(prefix_map.keys())}.")
-    
-    for part in str(tax).split(";"):
-        part = part.strip()
-        if part.startswith(prefix):
-            name = part[len(prefix):].strip()
-            return name if name else "Unclassified"
-    
-    return "Unclassified"
+from .drep_cluster_plot import extract_rank
 
 
 def simplify_pathway_class(value: str) -> str:
@@ -64,6 +37,7 @@ def prepare_cluster_data(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, tax_level
     
     drep["genome_normalized"] = drep["genome"].apply(normalize_genome_id)
 
+    # Count genomes and keep top n biggest clusters
     cluster_counts = (drep.groupby("secondary_cluster").size().reset_index(name="n_members")
         .sort_values("n_members", ascending=False).head(top_n))
 
@@ -102,6 +76,7 @@ def prepare_cluster_data(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, tax_level
     cluster_reps = (drep.groupby("secondary_cluster")["genome_normalized"].apply(get_representative).reset_index())
     cluster_reps.columns = ["secondary_cluster", "representative"]
 
+    # Combine cluster counts with representative genomes
     cluster_data = cluster_counts.merge(cluster_reps, on="secondary_cluster", how="left")
     cluster_data["representative_display"] = (cluster_data["representative"].apply(format_genome_display))
 
@@ -132,9 +107,11 @@ def select_top_modules(pw: pd.DataFrame, representatives, top_modules: int | Non
     if top_modules is None:
         return pw
 
+    # Keep only pathway rows for selected representative genomes
     pw = pw[pw["contig_normalized"].isin(representatives)]
 
     # Build matrix
+    # rows = genomes, columns = modules, values = completeness
     pivot = pw.pivot_table(
         index="contig_normalized",
         columns="module_accession",
@@ -144,6 +121,7 @@ def select_top_modules(pw: pd.DataFrame, representatives, top_modules: int | Non
     
     pivot = pivot.loc[representatives]
 
+    # Score each module depending on selected mode
     if mode == "mean":
         scores = pivot.fillna(0).mean(axis=0)
     elif mode == "variance":
@@ -229,7 +207,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     fig = plt.figure(figsize=fig_size)
     n_tax = len(tax_levels)
 
-    # [Sample labels] [bar plot] [spacer] [taxonomy] [spacer] [heatmap]
+    # [Sample labels | bar plot | spacer | taxonomy | spacer | heatmap]
     width_ratios = ([0.08, 4.8, 0.02] + [max(1.1, tax_levels_space * 3.5)] * n_tax
         + [0.35, max(5.5, len(module_meta) * 0.20)])
 
@@ -263,6 +241,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
         linewidth=0.5,
     )
 
+    # X-axis scale and tick spacing
     max_members = int(cluster_data["n_members"].max())
     nice_max = int(np.ceil(max_members * 1.08))
     step = 5 if nice_max <= 50 else 10
@@ -278,6 +257,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     ax_bars.spines["top"].set_visible(False)
     ax_bars.spines["right"].set_visible(False)
 
+    # Count labels
     for i, (_, row) in enumerate(cluster_data.iterrows()):
         count = int(row["n_members"])
         ax_bars.text(
@@ -312,6 +292,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
         for spine in ax.spines.values():
             spine.set_visible(False)
 
+        # Taxonomic title
         ax.text(
             0.0,
             1.02,
@@ -355,6 +336,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     )
     ax_heatmap.tick_params(axis="x", bottom=True, labelbottom=True, top=False, length=2)
 
+    # Add grid lines between cells
     ax_heatmap.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
     ax_heatmap.set_yticks(np.arange(-0.5, n_rows, 1), minor=True)
     ax_heatmap.grid(which="minor", color="#d1d5db", linewidth=0.35)
@@ -363,7 +345,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     for spine in ax_heatmap.spines.values():
         spine.set_visible(False)
 
-    # separator lines between pathway classes
+    # Separator lines between pathway classes
     for _, _, end in class_blocks[:-1]:
         ax_heatmap.axvline(end + 0.5, color="white", linewidth=2)
 
@@ -373,13 +355,13 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
         "#B279A2", "#FF9DA6", "#9D755D", "#593122", "#2E91E5"
     ]
 
-    # colored bar directly above the heatmap
+    # Colored bar directly above the heatmap
     y_bar = -0.95
     bar_height = 0.22
 
     # text above connector line
     label_levels = [-1.55, -2.25, -2.95, -3.65]
-    line_bottom_pad = -0.01  # gap between line end and text
+    line_bottom_pad = -0.01  # gap between line and label
 
     for i, (cls, start, end) in enumerate(class_blocks):
         center = (start + end) / 2.0
@@ -409,7 +391,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
             zorder=5,
         )
 
-        # label above connector line
+        # Class label text
         ax_heatmap.text(
             center,
             y_text,
@@ -453,9 +435,9 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
         family='monospace'
     )
 
-    title_text = {"core": "Core functional modules", "difference": "Differential functional modules",}.get(suffix, suffix)
+    title_text = {"core": "core functional modules", "difference": "differential functional modules",}.get(suffix, suffix)
 
-    plt.suptitle(f"Top {top_n} species-level clusters by MAG count with {title_text.lower()}",
+    plt.suptitle(f"Taxonomic and {title_text.lower()} of the {top_n} largest dRep clusters ",
         fontsize=13, y=1.06, fontweight="bold",)
 
     out_file = os.path.join(output_path,f"drep_cluster_functional_{suffix}_top{top_n}.{fmt}")
@@ -502,6 +484,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
 
     print(f"[INFO] Creating dRep cluster plot (top {top_n}, tax_levels={tax_levels})")
 
+    # Collect genomes that have pathway data
     pw_genomes = set(pathway_df["contig"].apply(normalize_genome_id).unique())
     print(f"[INFO] {len(pw_genomes)} genomes found in pathway file")
 
@@ -514,6 +497,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
         top_n=fetch_n,
     )
 
+    # Remove clusters with no pathway data
     before = len(cluster_data)
     cluster_data = cluster_data[
         cluster_data["representative"].isin(pw_genomes)].reset_index(drop=True)
@@ -523,7 +507,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
         print(f"[WARN] {before - after} clusters removed (representative has no pathway data). "
               f"{after} clusters remaining.")
 
-    # cluster data sorted - largest cluster tail()
+    # cluster data sorted - tail() to keep largest clusters
     cluster_data = cluster_data.tail(top_n).reset_index(drop=True)
 
     if len(cluster_data) < top_n:
