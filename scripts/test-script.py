@@ -5,60 +5,157 @@ import shutil
 import subprocess
 from pathlib import Path
 
+def run_and_check(cmd: list[str], cwd: Path, expected_files: list[Path]) -> bool:
+    print("[TEST] Running:")
+    print(" ".join(f'"{c}"' if " " in c else c for c in cmd))
+    print()
+
+    result = subprocess.run(cmd, cwd=str(cwd))
+    if result.returncode != 0:
+        print(f"[ERROR] Command failed with exit code {result.returncode}")
+        return False
+
+    ok = True
+    for path in expected_files:
+        if not path.exists():
+            print(f"[ERROR] Expected output file not found: {path}")
+            ok = False
+        elif path.stat().st_size == 0:
+            print(f"[ERROR] Output file is empty: {path}")
+            ok = False
+        else:
+            print(f"[OK] Output created: {path}")
+
+    print()
+    return ok
+
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
-
-    use_case_folder = repo_root / "test-data"
-    out_dir = repo_root / "test-plots"
+    test_data = repo_root / "test-data"
+    out_root = repo_root / "test-plots"
 
     if shutil.which("mags-visualization") is None:
         print("[ERROR] mags-visualization not found. Did you run 'pip install .'?")
         return 1
 
-    # main_py = repo_root / "scripts" / "main.py"
+    out_root.mkdir(parents=True, exist_ok=True)
 
-    # Basis-Command (Powershell)
-    cmd = [
-        # sys.executable,
-        # str(main_py),
-        sys.executable, "-m", "mags_visualization.main",
-        "all",
+    python_cmd = [sys.executable, "-m", "mags_visualization.main"]
 
-        "--coverm", str(use_case_folder / "coverm.tsv"),
-        "--checkm", str(use_case_folder / "checkm.tsv"),
-        "--checkm2", str(use_case_folder / "checkm2.tsv"),
-        "--gtdb", str(use_case_folder / "gtdb.tsv"),
-        "--drep", str(use_case_folder / "drep.csv"),
-        "--quast", str(use_case_folder / "quast.tsv"),
-        "--bakta", str(use_case_folder / "bakta.tsv"),
-        "--metadata", str(use_case_folder / "metadata.tsv"),
+    tests = [
+        {
+            "name": "sample-heatmap",
+            "cmd": python_cmd + [
+                "sample-heatmap",
+                "--coverm", str(test_data / "coverm.tsv"),
+                "--gtdb", str(test_data / "gtdb.tsv"),
+                "--metadata", str(test_data / "metadata.tsv"),
+                "--meta_cols",
+                "Infection by Nosema ceranae",
+                "Chronic exposure to neonicotinoid",
+                "Treatment with probiotic",
+                "--tax_level", "phylum",
+                "--output", str(out_root / "sample-heatmap"),
+            ],
+            "expected": [
+                out_root / "sample-heatmap" / "heatmap_with_bars_species_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
+            ],
+        },
 
-        # metadata columns
-        "--meta_cols",
-        "Infection by Nosema ceranae",
-        "Chronic exposure to neonicotinoid",
-        "Treatment with probiotic",
+        {
+            "name": "comp-conta",
+            "cmd": python_cmd + [
+                "comp-conta",
+                "--checkm", str(test_data / "checkm.tsv"),
+                "--checkm2", str(test_data / "checkm2.tsv"),
+                "--color_by", "tax",
+                "--gtdb", str(test_data / "gtdb.tsv"),
+                "--tax_level", "phylum",
+                "--output", str(out_root / "comp-conta"),
+            ],
+            "expected": [
+                out_root / "comp-conta" / "comp_conta_marginals_checkm2.png",
+            ],
+        },
 
-        "--color_by", "tax",
-        "--tax_level", "phylum",
+        {
+            "name": "taxa-sankey",
+            "cmd": python_cmd + [
+                "taxa-sankey",
+                "--gtdb", str(test_data / "gtdb.tsv"),
+                "--output", str(out_root / "taxa-sankey"),
+            ],
+            "expected": [
+                out_root / "taxa-sankey" / "sankey_plot.html",
+            ],
+        },
 
-        "--top_n", "30",
+        {
+            "name": "drep-cluster-annot",
+            "cmd": python_cmd + [
+                "drep-cluster",
+                "--drep", str(test_data / "drep.csv"),
+                "--gtdb", str(test_data / "gtdb.tsv"),
+                "--checkm2", str(test_data / "checkm2.tsv"),
+                "--top_n", "30",
+                "--output", str(out_root / "drep-cluster"),
+            ],
+            "expected": [
+                out_root / "drep-cluster" / "drep_cluster_top_30_phylum.png",
+            ],
+        },
 
-        "--top_bar_spacer", "-0.5",
-        "--spacer_meta", "2.5",
+        {
+            "name": "drep-cluster-func",
+            "cmd": python_cmd + [
+                "functional-annotation",
+                "--drep", str(test_data / "drep.csv"),
+                "--gtdb", str(test_data / "gtdb.tsv"),
+                "--kegg_pathway_completeness", str(test_data / "kegg_pathway_completeness.tsv"),
+                "--top_n", "30",
+                "--output", str(out_root / "functional-annotation"),
+            ],
+            "expected": [out_root / "functional-annotation" / "drep_cluster_functional_core_top30.png"]
+        },
 
-        "-o", str(out_dir),
+        {
+            "name": "all",
+            "cmd": python_cmd + [
+                "all",
+                "--coverm", str(test_data / "coverm.tsv"),
+                "--checkm", str(test_data / "checkm.tsv"),
+                "--checkm2", str(test_data / "checkm2.tsv"),
+                "--gtdb", str(test_data / "gtdb.tsv"),
+                "--drep", str(test_data / "drep.csv"),
+                "--metadata", str(test_data / "metadata.tsv"),
+                "--kegg_pathway_completeness", str(test_data / "kegg_pathway_completeness.tsv"),
+                "--meta_cols",
+                "Infection by Nosema ceranae",
+                "Chronic exposure to neonicotinoid",
+                "Treatment with probiotic",
+                "--color_by", "tax",
+                "--tax_level", "phylum",
+                "--top_n", "30",
+                "--output", str(out_root / "all"),
+            ],
+            "expected": [
+                out_root / "all" / "heatmap_with_bars_species_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
+                out_root / "all" / "comp_conta_marginals_checkm2.png",
+                out_root / "all" / "sankey_plot.html",
+                out_root / "all" / "drep_cluster_top_30_phylum.png",
+                out_root / "all" / "drep_cluster_functional_core_top30.png",
+            ],
+        },
     ]
 
-    print("[TEST] Running:")
-    print(" ".join(f'"{c}"' if " " in c else c for c in cmd))
-    print()
+    all_ok = True
+    for test in tests:
+        print(f"# ---- Running test: {test['name']} ---- #")
+        if not run_and_check(test["cmd"], repo_root, test["expected"]):
+            all_ok = False
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    result = subprocess.run(cmd, cwd=str(repo_root))
-    return result.returncode
+    return 0 if all_ok else 1
 
 
 if __name__ == "__main__":
