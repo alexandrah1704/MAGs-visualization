@@ -53,7 +53,7 @@ def test_sample_heatmap_smoke(tmp_path: Path) -> None:
         ]
     )
     assert result.returncode == 0, result.stderr
-    output_file = outdir / "heatmap_with_bars_phylum_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png"
+    output_file = outdir / "heatmap_with_bars_phylum.png"
     assert output_file.exists()
     assert output_file.stat().st_size > 0
 
@@ -151,7 +151,7 @@ def test_all_smoke(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
 
     expected = [
-        outdir / "heatmap_with_bars_phylum_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
+        outdir / "heatmap_with_bars_phylum.png",
         outdir / "comp_conta_marginals_checkm2.png",
         outdir / "sankey_plot.html",
         outdir / "drep_cluster_top30_phylum-genus.png",
