@@ -5,9 +5,9 @@ import subprocess
 from pathlib import Path
 
 def run_and_check(cmd: list[str], cwd: Path, expected_files: list[Path]) -> bool:
-    print("[TEST] Running:")
-    print(" ".join(f'"{c}"' if " " in c else c for c in cmd))
-    print()
+    print("[TEST] Running:", flush=True)
+    print(" ".join(f'"{c}"' if " " in c else c for c in cmd), flush=True)
+    print(flush=True)
 
     result = subprocess.run(
         cmd,
@@ -15,16 +15,42 @@ def run_and_check(cmd: list[str], cwd: Path, expected_files: list[Path]) -> bool
         text=True,
         capture_output=True,
     )
+
+    if result.stdout:
+        print("[STDOUT]", flush=True)
+        print(result.stdout, flush=True)
+
+    if result.stderr:
+        print("[STDERR]", flush=True)
+        print(result.stderr, flush=True)
+
     if result.returncode != 0:
-        print(f"[ERROR] Command failed with exit code {result.returncode}")
-        if result.stdout:
-            print("[STDOUT]")
-            print(result.stdout)
-        if result.stderr:
-            print("[STDERR]")
-            print(result.stderr)
+        print(f"[ERROR] Command failed with exit code {result.returncode}", flush=True)
         return False
 
+    ok = True
+    print("[DEBUG] Checking expected files:", flush=True)
+    for path in expected_files:
+        print(f"  expected: {path}", flush=True)
+        if not path.exists():
+            print(f"[ERROR] Expected output file not found: {path}", flush=True)
+            ok = False
+        elif path.stat().st_size == 0:
+            print(f"[ERROR] Output file is empty: {path}", flush=True)
+            ok = False
+        else:
+            print(f"[OK] Output created: {path}", flush=True)
+
+    # sehr hilfreich zum Debuggen
+    out_root = cwd / "test-plots"
+    if out_root.exists():
+        print("[DEBUG] Existing files in test-plots:", flush=True)
+        for p in sorted(out_root.rglob("*")):
+            if p.is_file():
+                print(f"  {p}", flush=True)
+
+    print(flush=True)
+    return ok
 
 
 def main() -> int:
@@ -74,7 +100,7 @@ def main() -> int:
                 "--output", str(out_root),
             ],
             "expected": [
-                out_root / "comp_conta_marginals_checkm2.png",
+                out_root / "comp_conta_by_rank_marginals_CheckM2.png",
             ],
         },
 
@@ -102,7 +128,7 @@ def main() -> int:
                 "--output", str(out_root),
             ],
             "expected": [
-                out_root / "drep_cluster_top_30_phylum.png",
+                out_root / "drep_cluster_top_30_phylum-genus.png",
             ],
         },
 
@@ -142,7 +168,7 @@ def main() -> int:
             ],
             "expected": [
                 out_root / "all" / "heatmap_with_bars_phylum.png",
-                out_root / "all" / "comp_conta_marginals_checkm2.png",
+                out_root / "all" / "comp_conta_by_rank_marginals_CheckM2.png",
                 out_root / "all" / "sankey_plot.html",
                 out_root / "all" / "drep_cluster_top30_phylum-genus.png",
                 out_root / "all" / "drep_cluster_functional_core_top30.png",

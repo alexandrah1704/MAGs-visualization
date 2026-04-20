@@ -28,7 +28,7 @@ jobs:
       
       - name: Run example workflow
         run: |
-          python scripts/test-script.py
+          python -u scripts/test-script.py
 
       - name: Upload test plots
         uses: actions/upload-artifact@v4

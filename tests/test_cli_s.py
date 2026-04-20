@@ -71,7 +71,7 @@ def test_comp_conta_smoke(tmp_path: Path) -> None:
         ]
     )
     assert result.returncode == 0, result.stderr
-    output_file = outdir / "comp_conta_marginals_checkm2.png"
+    output_file = outdir / "comp_conta_by_rank_marginals_CheckM2.png"
     assert output_file.exists()
     assert output_file.stat().st_size > 0
 
@@ -152,7 +152,7 @@ def test_all_smoke(tmp_path: Path) -> None:
 
     expected = [
         outdir / "heatmap_with_bars_phylum.png",
-        outdir / "comp_conta_marginals_checkm2.png",
+        outdir / "comp_conta_by_rank_marginals_CheckM2.png",
         outdir / "sankey_plot.html",
         outdir / "drep_cluster_top30_phylum-genus.png",
         outdir / "drep_cluster_functional_core_top30.png",
