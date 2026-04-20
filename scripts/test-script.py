@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import shutil
 import subprocess
 from pathlib import Path
@@ -60,7 +61,7 @@ def main() -> int:
                 "--output", str(out_root / "sample-heatmap"),
             ],
             "expected": [
-                out_root / "sample-heatmap" / "heatmap_with_bars_phylum.png",
+                out_root / "sample-heatmap" / "heatmap_with_bars_species_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
             ],
         },
 
@@ -141,7 +142,7 @@ def main() -> int:
                 "--output", str(out_root / "all"),
             ],
             "expected": [
-                out_root / "all" / "heatmap_with_bars_phylum.png",
+                out_root / "all" / "heatmap_with_bars_species_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
                 out_root / "all" / "comp_conta_marginals_checkm2.png",
                 out_root / "all" / "sankey_plot.html",
                 out_root / "all" / "drep_cluster_top_30_phylum.png",
