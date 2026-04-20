@@ -31,6 +31,7 @@ def reset_matplotlib():
     """
     Reset matplotlib global state so plots do not inherit style/layout
     from previously created figures.
+    (Required, if you want to use subcommand "all".)
     """
     plt.close("all")
     mpl.rcdefaults()
@@ -280,7 +281,7 @@ def build_parser():
     p.add_argument("--sort_by", choices=["cluster_size", "none"], default="cluster_size", help="How to select top representatives")
 
     # ---- comp-conta ----
-    p = sub.add_parser("comp-conta", help="Completeness/contamination plots.")
+    p = sub.add_parser("comp-conta", help="Create completeness/contamination plots.")
     p.add_argument("--checkm", required=True, dest="checkm_file")
     p.add_argument("--checkm2", required=True, dest="checkm2_file")
     p.add_argument("--gtdb", dest="gtdb_file", default=None)
@@ -554,7 +555,7 @@ def run_taxa_sankey(args):
 
 def run_all(args):
     """
-    Runs all what it can based on provided inputs.
+    Runs all based on provided inputs.
     """
     dfs = load_dfs(
         args.coverm_path,
@@ -575,7 +576,6 @@ def run_all(args):
     comp_fig_size = _fig_size_tuple(args)
 
     tax_rank = args.tax_level or args.rank or "phylum"
-    aq_tax_rank = args.tax_level or args.rank or "phylum"
 
     # sankey
     if dfs["gtdb"] is not None:
