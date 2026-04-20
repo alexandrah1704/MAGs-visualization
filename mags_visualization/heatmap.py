@@ -620,7 +620,7 @@ def mag_heatmap(coverm_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path: str
     ax_right.spines["bottom"].set_visible(False)
 
     plt.suptitle(f"MAG distribution: samples × {rank}", y=0.95, fontsize=12)
-    out_png = os.path.join(output_path, f"heatmap_with_bars_{rank}_{meta_cols}.{fmt}")
+    out_png = os.path.join(output_path, f"heatmap_with_bars_{rank}.{fmt}")
     plt.savefig(out_png, dpi=300, bbox_inches="tight")
     plt.close()
     return out_png

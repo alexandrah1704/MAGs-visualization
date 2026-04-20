@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import shutil
 import subprocess
 from pathlib import Path
@@ -38,15 +37,17 @@ def main() -> int:
     if shutil.which("mags-visualization") is None:
         print("[ERROR] mags-visualization not found. Did you run 'pip install .'?")
         return 1
-
+    
+    if out_root.exists():
+        shutil.rmtree(out_root)
     out_root.mkdir(parents=True, exist_ok=True)
 
-    python_cmd = [sys.executable, "-m", "mags_visualization.main"]
+    cli_md = ["mags-visualization"]
 
     tests = [
         {
             "name": "sample-heatmap",
-            "cmd": python_cmd + [
+            "cmd": cli_md + [
                 "sample-heatmap",
                 "--coverm", str(test_data / "coverm.tsv"),
                 "--gtdb", str(test_data / "gtdb.tsv"),
@@ -59,13 +60,13 @@ def main() -> int:
                 "--output", str(out_root / "sample-heatmap"),
             ],
             "expected": [
-                out_root / "sample-heatmap" / "heatmap_with_bars_species_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
+                out_root / "sample-heatmap" / "heatmap_with_bars_phylum.png",
             ],
         },
 
         {
             "name": "comp-conta",
-            "cmd": python_cmd + [
+            "cmd": cli_md + [
                 "comp-conta",
                 "--checkm", str(test_data / "checkm.tsv"),
                 "--checkm2", str(test_data / "checkm2.tsv"),
@@ -81,7 +82,7 @@ def main() -> int:
 
         {
             "name": "taxa-sankey",
-            "cmd": python_cmd + [
+            "cmd": cli_md + [
                 "taxa-sankey",
                 "--gtdb", str(test_data / "gtdb.tsv"),
                 "--output", str(out_root / "taxa-sankey"),
@@ -93,7 +94,7 @@ def main() -> int:
 
         {
             "name": "drep-cluster-annot",
-            "cmd": python_cmd + [
+            "cmd": cli_md + [
                 "drep-cluster",
                 "--drep", str(test_data / "drep.csv"),
                 "--gtdb", str(test_data / "gtdb.tsv"),
@@ -108,7 +109,7 @@ def main() -> int:
 
         {
             "name": "drep-cluster-func",
-            "cmd": python_cmd + [
+            "cmd": cli_md + [
                 "functional-annotation",
                 "--drep", str(test_data / "drep.csv"),
                 "--gtdb", str(test_data / "gtdb.tsv"),
@@ -121,7 +122,7 @@ def main() -> int:
 
         {
             "name": "all",
-            "cmd": python_cmd + [
+            "cmd": cli_md + [
                 "all",
                 "--coverm", str(test_data / "coverm.tsv"),
                 "--checkm", str(test_data / "checkm.tsv"),
@@ -140,7 +141,7 @@ def main() -> int:
                 "--output", str(out_root / "all"),
             ],
             "expected": [
-                out_root / "all" / "heatmap_with_bars_species_['Infection by Nosema ceranae', 'Chronic exposure to neonicotinoid', 'Treatment with probiotic'].png",
+                out_root / "all" / "heatmap_with_bars_phylum.png",
                 out_root / "all" / "comp_conta_marginals_checkm2.png",
                 out_root / "all" / "sankey_plot.html",
                 out_root / "all" / "drep_cluster_top_30_phylum.png",
