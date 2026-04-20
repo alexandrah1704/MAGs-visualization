@@ -128,7 +128,7 @@ def main() -> int:
                 "--output", str(out_root),
             ],
             "expected": [
-                out_root / "drep_cluster_top_30_phylum-genus.png",
+                out_root / "drep_cluster_top30_phylum-genus.png",
             ],
         },
 
