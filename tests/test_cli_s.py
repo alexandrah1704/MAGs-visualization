@@ -65,6 +65,7 @@ def test_comp_conta_smoke(tmp_path: Path) -> None:
             "comp-conta",
             "--checkm", str(TEST_DATA / "checkm.tsv"),
             "--checkm2", str(TEST_DATA / "checkm2.tsv"),
+            "--mode", "tax",
             "--gtdb", str(TEST_DATA / "gtdb.tsv"),
             "--tax_level", "phylum",
             "--output", str(outdir),
