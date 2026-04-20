@@ -16,40 +16,29 @@ def run_and_check(cmd: list[str], cwd: Path, expected_files: list[Path]) -> bool
         capture_output=True,
     )
 
-    if result.stdout:
-        print("[STDOUT]", flush=True)
-        print(result.stdout, flush=True)
-
-    if result.stderr:
-        print("[STDERR]", flush=True)
-        print(result.stderr, flush=True)
-
     if result.returncode != 0:
-        print(f"[ERROR] Command failed with exit code {result.returncode}", flush=True)
+        print(f"[ERROR] Command failed with exit code {result.returncode}")
+        if result.stdout:
+            print("[STDOUT]")
+            print(result.stdout)
+        if result.stderr:
+            print("[STDERR]")
+            print(result.stderr)
+        print()
         return False
 
     ok = True
-    print("[DEBUG] Checking expected files:", flush=True)
     for path in expected_files:
-        print(f"  expected: {path}", flush=True)
         if not path.exists():
-            print(f"[ERROR] Expected output file not found: {path}", flush=True)
+            print(f"[ERROR] Expected output file not found: {path}")
             ok = False
         elif path.stat().st_size == 0:
-            print(f"[ERROR] Output file is empty: {path}", flush=True)
+            print(f"[ERROR] Output file is empty: {path}")
             ok = False
         else:
-            print(f"[OK] Output created: {path}", flush=True)
+            print(f"[OK] Output created: {path}")
 
-    # sehr hilfreich zum Debuggen
-    out_root = cwd / "test-plots"
-    if out_root.exists():
-        print("[DEBUG] Existing files in test-plots:", flush=True)
-        for p in sorted(out_root.rglob("*")):
-            if p.is_file():
-                print(f"  {p}", flush=True)
-
-    print(flush=True)
+    print()
     return ok
 
 
