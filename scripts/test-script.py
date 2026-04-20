@@ -144,7 +144,7 @@ def main() -> int:
                 out_root / "all" / "heatmap_with_bars_phylum.png",
                 out_root / "all" / "comp_conta_marginals_checkm2.png",
                 out_root / "all" / "sankey_plot.html",
-                out_root / "all" / "drep_cluster_top_30_phylum.png",
+                out_root / "all" / "drep_cluster_top30_phylum-genus.png",
                 out_root / "all" / "drep_cluster_functional_core_top30.png",
             ],
         },
