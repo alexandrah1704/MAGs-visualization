@@ -256,6 +256,8 @@ def build_parser():
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png" , "pdf", "svg"], default="png", dest="format")
     p.add_argument("--top_modules", type=int_or_none, default=35, dest="top_modules")
+    p.add_argument("--mode", choices=["mean", "variance", "both"], default="mean", dest="mode",
+                   help="mean = core modules, variance = differential modules, or both.")
     
     # ---- pathway-module-heatmap ----
     p = sub.add_parser("pathway-module-heatmap", help="Create a MAG vs pathway-module heatmap grouped by pathway_class.")
@@ -447,6 +449,7 @@ def run_drep_cluster_func(args):
         top_modules=args.top_modules,
         fig_size=_fig_size_tuple(args),
         fmt=args.format,
+        mode=args.mode,
         tax_levels_space=args.tax_levels_space,
     )
 

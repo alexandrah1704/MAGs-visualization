@@ -451,7 +451,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
 # ---- Main plot function ----
 def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, pathway_df: pd.DataFrame,
                      output_path: str, tax_levels=("phylum", "genus"), top_n: int = 30, top_modules: int | None = 35, fmt: str = "png",
-                     tax_levels_space: float = 0.3, fig_size=None):
+                     mode: str = "mean", tax_levels_space: float = 0.3, fig_size=None):
     """
     Create a dRep cluster plot with a functional kegg pathway heatmap.
 
@@ -481,6 +481,12 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
     for lvl in tax_levels:
         if lvl not in valid_ranks:
             raise ValueError(f"Invalid tax level '{lvl}'. Choose from {sorted(valid_ranks)}.")
+
+    # ---- Choose mode ----
+    mode = str(mode).lower().strip()
+    valid_modes = {"mean", "variance", "both"}
+    if mode not in valid_modes:
+        raise ValueError(f"False mode '{mode}'. Choose from {valid_modes}.")
 
     print(f"[INFO] Creating dRep cluster plot (top {top_n}, tax_levels={tax_levels})")
 
@@ -515,55 +521,38 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
 
     representatives = cluster_data["representative"].tolist()
 
-    # ---- Plot 1: Core functions (highest mean completeness) ----
-    heatmap_df_core, module_meta_core, class_blocks_core = prepare_pathway_matrix(
-        pathway_df=pathway_df,
-        representatives=representatives,
-        top_modules=top_modules,
-        mode="mean",
-    )
+    outputs = []
 
-    plot_single_functional(
-        cluster_data=cluster_data,
-        drep=drep,
-        total_clusters=total_clusters,
-        heatmap_df=heatmap_df_core,
-        module_meta=module_meta_core,
-        class_blocks=class_blocks_core,
-        output_path=output_path,
-        tax_levels=tax_levels,
-        top_n=top_n,
-        fmt=fmt,
-        suffix="core",
-        tax_levels_space=tax_levels_space,
-        fig_size=fig_size,
-    )
+    # map user mode
+    plot_modes = []
+    if mode in {"mean", "both"}:
+        plot_modes.append(("mean", "core"))
+    if mode in {"variance", "both"}:
+        plot_modes.append(("variance", "differrence"))
+    
+    for select_mode, suffix in plot_modes:
+        heatmap_df_core, module_meta_core, class_blocks_core = prepare_pathway_matrix(
+            pathway_df=pathway_df,
+            representatives=representatives,
+            top_modules=top_modules,
+            mode=select_mode,
+        )
 
-    # ---- Plot 2: Differential functions (highest variance) ----
-    heatmap_df_diff, module_meta_diff, class_blocks_diff = prepare_pathway_matrix(
-        pathway_df=pathway_df,
-        representatives=representatives,
-        top_modules=top_modules,
-        mode="variance",
-    )
+        out_file = plot_single_functional(
+            cluster_data=cluster_data,
+            drep=drep,
+            total_clusters=total_clusters,
+            heatmap_df=heatmap_df_core,
+            module_meta=module_meta_core,
+            class_blocks=class_blocks_core,
+            output_path=output_path,
+            tax_levels=tax_levels,
+            top_n=top_n,
+            fmt=fmt,
+            suffix=suffix,
+            tax_levels_space=tax_levels_space,
+            fig_size=fig_size,
+        )
+        outputs.append(out_file)
 
-    plot_single_functional(
-        cluster_data=cluster_data,
-        drep=drep,
-        total_clusters=total_clusters,
-        heatmap_df=heatmap_df_diff,
-        module_meta=module_meta_diff,
-        class_blocks=class_blocks_diff,
-        output_path=output_path,
-        tax_levels=tax_levels,
-        top_n=top_n,
-        fmt=fmt,
-        suffix="difference",
-        tax_levels_space=tax_levels_space,
-        fig_size=fig_size,
-    )
-
-    return [
-        os.path.join(output_path, f"drep_cluster_functional_core_top{top_n}.{fmt}"),
-        os.path.join(output_path, f"drep_cluster_functional_difference_top{top_n}.{fmt}"),
-    ]
+    return outputs
