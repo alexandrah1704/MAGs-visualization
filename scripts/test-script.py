@@ -113,6 +113,7 @@ def main() -> int:
                 "--gtdb", str(test_data / "gtdb.tsv"),
                 "--checkm2", str(test_data / "checkm2.tsv"),
                 "--quast", str(test_data / "quast.tsv"),
+                "--bakta", str(test_data / "bakta.tsv"),
                 "--top_n", "30",
                 "--output", str(out_root),
             ],

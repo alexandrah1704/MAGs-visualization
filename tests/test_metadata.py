@@ -1,7 +1,6 @@
 from __future__ import annotations
 import pandas as pd
 
-# Bitte Import anpassen
 from mags_visualization.heatmap import process_metadata_column
 
 
