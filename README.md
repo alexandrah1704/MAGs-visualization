@@ -27,7 +27,7 @@ This is the recommended way to install and use the tool.
 Clone the repository and change into the project directory:
 
 ```bash
-git clone https://github.com/alexandrah1704/MAGs-visualization.git
+git clone https://github.com/usegalaxy-eu/MAGs-visualization.git
 cd MAGs-visualization
 ```
 

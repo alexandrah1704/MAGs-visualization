@@ -32,7 +32,7 @@ setup(
     author="Alexandra Hottmann",
     author_email="alexandra.hottm@gmx.de",
     license="GPL-3.0",
-    url="https://github.com/alexandrah1704/MAGs-visualization",
+    url="https://github.com/usegalaxy-eu/MAGs-visualization",
 
     packages=find_packages(include=["mags_visualization", "mags_visualization.*"]),
 
