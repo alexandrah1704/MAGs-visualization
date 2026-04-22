@@ -5,9 +5,6 @@ version = {}
 with open(os.path.join("mags_visualization", "version.py"), encoding="utf-8") as f:
     exec(f.read(), version)
 
-## install main application
-desc = ""
-
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
@@ -19,7 +16,6 @@ install_requires = [
     "seaborn",
     "plotly",
     "kaleido",
-    "argparse",
     "networkx",
     ]
 

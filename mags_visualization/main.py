@@ -1,15 +1,17 @@
 import pandas as pd
 import numpy as np
 import argparse
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import time
 import os
 from .version import __version__
 from .sanky_taxa import generate_taxa_sanky,taxa_sanky_rank
 from .comp_conta_plot import completeness_contamination_plot, rank_completeness_contamination_plot, metadata_completeness_contamination_plot
 from .heatmap import mag_heatmap
-from .assembly_quality import assembly_quality_plot
-from .bakta_checkm2_plot import bakta_annotation_plot
 from .drep_cluster_plot import drep_cluster_plot
+from .drep_cluster_func import drep_cluster_functional_plot
+from .pathway_module_heatmap import pathway_module_heatmap
 
 
 def positive_int(value):
@@ -17,6 +19,31 @@ def positive_int(value):
     if ivalue < 5:
         raise argparse.ArgumentTypeError(f"{value} must be >= 5")
     return ivalue
+
+
+def int_or_none(value):
+        if value.lower() == "none":
+            return None
+        return int(value)
+
+
+def reset_matplotlib():
+    """
+    Reset matplotlib global state so plots do not inherit style/layout
+    from previously created figures.
+    (Required, if you want to use subcommand "all".)
+    """
+    plt.close("all")
+    mpl.rcdefaults()
+    plt.rcdefaults()
+
+
+def run_clean(plot_func, *args, **kwargs):
+    """
+    Run a plotting function in a clean matplotlib state.
+    """
+    reset_matplotlib()
+    return plot_func(*args, **kwargs)
 
 
 def read_table(path, index_col=None, prefer_tsv=None):
@@ -79,8 +106,9 @@ def check_path(output_path):
     else:
         print(f"[INFO] Folder already exists: {output_path}")
 
+
 # ---- Data loading ---- #
-def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metadata=None):
+def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metadata=None, pathways=None):
     """
     Load only what is provided.
     """
@@ -154,8 +182,12 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
         print(f"[INFO] metadata loaded:{dfs['metadata'].shape}")
     else:
         print("[INFO] No metadata file provided.")
-
+    
+    dfs["pathways"] = read_table(pathways, index_col=None, prefer_tsv=True) if pathways is not None else None
+    if dfs["pathways"] is not None:
+        print(f"[INFO] pathways loaded:{dfs['pathways'].shape}")
     return dfs
+
 
 # ---- Parser builder - subcommands ---- #
 def build_parser():
@@ -195,8 +227,8 @@ def build_parser():
     layout.add_argument("--meta_bar_add", type=float, default=1.5, dest="meta_bar_add")
     layout.add_argument("--top_bar_spacer", type=float, default=0.0, dest="top_bar_spacer")
 
-    # ---- drep-cluster ----
-    p = sub.add_parser("drep-cluster", help="Create the dRep cluster plot.")
+    # ---- drep-cluster-annotation ----
+    p = sub.add_parser("drep-cluster-annot", help="Create the dRep cluster plot.")
     p.add_argument("--drep", required=True, dest="drep_file")
     p.add_argument("--gtdb", required=True, dest="gtdb_file")
     p.add_argument("--checkm2", dest="checkm2_file", default=None)
@@ -209,8 +241,49 @@ def build_parser():
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
 
+    # ---- drep-cluster-functional ----
+    p = sub.add_parser("drep-cluster-func", help="Create the dRep cluster plot with functional annotation.")
+    p.add_argument("--drep", required=True, dest="drep_file")
+    p.add_argument("--gtdb", required=True, dest="gtdb_file")
+    p.add_argument("--checkm2", dest="checkm2_file", default=None)
+    p.add_argument("--quast", dest="quast_file", default=None)
+    p.add_argument("--bakta", dest="bakta_file", default=None)
+    p.add_argument("--pathways", dest="pathways_file", default=None, help="TSV with contig, module accession, completeness, pathway_name, pathway_class, ...")
+    p.add_argument("--tax_levels", nargs="+", choices=tax_levels, default=["phylum", "genus"])
+    p.add_argument("--top_n", type=positive_int, default=30, dest="n")
+    p.add_argument("--tax_levels_space", type=float, default=0.3, dest="tax_levels_space")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
+    p.add_argument("-o", "--output", required=True, dest="output")
+    p.add_argument("--format", choices=["png" , "pdf", "svg"], default="png", dest="format")
+    p.add_argument("--top_modules", type=int_or_none, default=35, dest="top_modules")
+    p.add_argument("--mode", choices=["mean", "variance", "both"], default="mean", dest="mode",
+                   help="mean = core modules, variance = differential modules, or both.")
+    
+    # ---- pathway-module-heatmap ----
+    p = sub.add_parser("pathway-module-heatmap", help="Create a MAG vs pathway-module heatmap grouped by pathway_class.")
+    p.add_argument("--pathways", required=True, dest="pathways_file",
+                   help="TSV with contig, module_accession, completeness, pathway_name, pathway_class, ...")
+    p.add_argument("--top_modules", type=int_or_none, default=30, dest="top_modules",
+                   help="Number of modules to show. Use None to show all modules.")
+    p.add_argument("--mode", choices=["mean", "variance"], default="mean", dest="mode",
+                   help="mean = core modules, variance = differential modules")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
+    p.add_argument("--show_module_labels", action="store_true", dest="show_module_labels")
+    p.add_argument("--row_fontsize", type=int, default=8, dest="row_fontsize")
+    p.add_argument("-o", "--output", required=True, dest="output")
+    p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
+    p.add_argument("--drep", dest="drep_file", default=None, 
+                   help="Optional dRep table used to restrict the heatmap to representatives only.")
+    p.add_argument("--gtdb", dest="gtdb_file", default=None,
+        help="Optional GTDB table required together with --drep when using --representatives_only.")
+    p.add_argument("--representatives_only", action="store_true", dest="representatives_only",
+        help="Show only representative MAGs derived from the dRep table.")
+    p.add_argument("--top_representatives", type=int, default=None, dest="top_representatives",
+               help="Limit number of representative MAGs (e.g. top 30)")
+    p.add_argument("--sort_by", choices=["cluster_size", "none"], default="cluster_size", help="How to select top representatives")
+
     # ---- comp-conta ----
-    p = sub.add_parser("comp-conta", help="Completeness/contamination plots.")
+    p = sub.add_parser("comp-conta", help="Create completeness/contamination plots.")
     p.add_argument("--checkm", required=True, dest="checkm_file")
     p.add_argument("--checkm2", required=True, dest="checkm2_file")
     p.add_argument("--gtdb", dest="gtdb_file", default=None)
@@ -231,34 +304,6 @@ def build_parser():
     p.add_argument("--rank", choices=tax_levels, default="phylum", dest="rank")
     p.add_argument("-o", "--output", required=True, dest="output")
 
-    # ---- assembly-quality ----
-    p = sub.add_parser("assembly-quality", help="Create assembly quality plots (QUAST).")
-    p.add_argument("--quast", required=True, dest="quast_file")
-    p.add_argument("--checkm2", required=True, dest="checkm2_file")
-    p.add_argument("--gtdb", dest="gtdb_file", default=None)
-    p.add_argument("--metadata", dest="metadata_file", default=None)
-    p.add_argument("--meta_col", dest="meta_col", default=None)
-    p.add_argument("--tax_level", choices=tax_levels, default="phylum", dest="tax_level")
-    p.add_argument("--column_choice", nargs="+", metavar="METRIC", dest="column_choice")
-    p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
-    p.add_argument("-o", "--output", required=True, dest="output")
-    p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
-
-    # ---- bakta-annotation ----
-    p = sub.add_parser("bakta-annotation", help="Create Bakta annotation plots.")
-    p.add_argument("--bakta", required=True, dest="bakta_file")
-    p.add_argument("--checkm2", required=True, dest="checkm2_file")
-    p.add_argument("--gtdb", dest="gtdb_file", default=None)
-    p.add_argument("--metadata", dest="metadata_file", default=None)
-    p.add_argument("--meta_col", dest="meta_col", default=None)
-    p.add_argument("--tax_level", choices=tax_levels, default="phylum", dest="tax_level")
-    p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--bakta_metrics", nargs="+", metavar="METRIC", default=None, dest="bakta_metrics")
-    p.add_argument("--ratio", action="store_true", dest="ratio")
-    p.add_argument("-o", "--output", required=True, dest="output")
-    p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
-
     # ---- all (optional) ----
     p = sub.add_parser("all", help="Run all plots (legacy behaviour).")
     p.add_argument("--coverm", dest="coverm_path", default=None)
@@ -269,6 +314,7 @@ def build_parser():
     p.add_argument("--quast", dest="quast_file", default=None)
     p.add_argument("--bakta", dest="bakta_file", default=None)
     p.add_argument("--metadata", dest="metadata_file", default=None)
+    p.add_argument("--pathways", dest="pathways_file", default=None)
     p.add_argument("--rank", choices=tax_levels, default="phylum", dest="rank")
     p.add_argument("--tax_level", choices=tax_levels, default=None, dest="tax_level")
     p.add_argument("--tax_levels", nargs="+", choices=tax_levels, default=["phylum", "genus"])
@@ -280,8 +326,6 @@ def build_parser():
     p.add_argument("--meta_bin_width", type=float, default=5.0, dest="meta_bin_width")
     p.add_argument("--column_choice", nargs="+", metavar="METRIC", dest="column_choice")
     p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--bakta_metrics", nargs="+", metavar="METRIC", default=None, dest="bakta_metrics")
-    p.add_argument("--ratio", action="store_true", dest="ratio")
     p.add_argument("--tax_levels_space", type=float, default=0.3, dest="tax_levels_space")
     p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
     p.add_argument("-o", "--output", required=True, dest="output")
@@ -298,12 +342,20 @@ def build_parser():
     p.add_argument("--top_bar_spacer", type=float, default=0.0, dest="top_bar_spacer")
     p.add_argument("--max_col", type=int, default=10, dest="max_col")
     p.add_argument("--no_log", action="store_true")
+    # functional annoation
+    p.add_argument("--top_modules", type=int_or_none, default=35, dest="top_modules")
+    p.add_argument("--mode", choices=["mean", "variance"], default="mean", dest="mode")
+    p.add_argument("--show_module_labels", action="store_true", dest="show_module_labels")
+    p.add_argument("--row_fontsize", type=int, default=8, dest="row_fontsize")
+    p.add_argument("--representatives_only", action="store_true", dest="representatives_only")
+    p.add_argument("--top_representatives", type=int, default=None, dest="top_representatives")
 
     return parser
 
 
 def parse_arguments(argv=None):
     return build_parser().parse_args(argv)
+
 
 # ---- Subcommand implementation ---- #
 def _fig_size_tuple(args):
@@ -370,6 +422,65 @@ def run_drep_cluster(args):
         checkm2_df=dfs.get("checkm2"),
         quast_df=dfs.get("quast"),
         bakta_df=dfs.get("bakta"),
+    )
+
+
+def run_drep_cluster_func(args):
+    dfs = load_dfs(
+        coverm=None,
+        checkm=None,
+        checkm2=args.checkm2_file,
+        gtdb=args.gtdb_file,
+        drep=args.drep_file,
+        pathways=args.pathways_file,
+        bakta=args.bakta_file,
+        quast=args.quast_file,
+        metadata=None,
+    )
+    check_path(args.output)
+
+    drep_cluster_functional_plot(
+        dfs["drep"],
+        dfs["gtdb"],
+        dfs["pathways"],
+        args.output,
+        tax_levels=args.tax_levels,
+        top_n=args.n,
+        top_modules=args.top_modules,
+        fig_size=_fig_size_tuple(args),
+        fmt=args.format,
+        mode=args.mode,
+        tax_levels_space=args.tax_levels_space,
+    )
+
+
+def run_pathway_module_heatmap(args):
+    dfs = load_dfs(
+        coverm=None,
+        checkm=None,
+        checkm2=None,
+        gtdb=args.gtdb_file,
+        drep=args.drep_file,
+        bakta=None,
+        quast=None,
+        metadata=None,
+        pathways=args.pathways_file,
+    )
+    check_path(args.output)
+
+    pathway_module_heatmap(
+        pathway_df=dfs["pathways"],
+        output_path=args.output,
+        top_modules=args.top_modules,
+        mode=args.mode,
+        fmt=args.format,
+        fig_size=_fig_size_tuple(args),
+        show_module_labels=args.show_module_labels,
+        row_fontsize=args.row_fontsize,
+        representatives_df=dfs.get("drep"),
+        gtdb_df=dfs.get("gtdb"),
+        representatives_only=args.representatives_only,
+        top_representatives=args.top_representatives,
     )
 
 
@@ -445,78 +556,9 @@ def run_taxa_sankey(args):
     taxa_sanky_rank(dfs["gtdb"], args.output, args.rank)
 
 
-def run_assembly_quality(args):
-    dfs = load_dfs(
-        coverm=None,
-        checkm=None,
-        checkm2=args.checkm2_file,
-        gtdb=args.gtdb_file,
-        drep=None,
-        quast=args.quast_file,
-        metadata=args.metadata_file,
-    )
-    check_path(args.output)
-    assembly_quality_plot(
-        dfs,
-        args.output,
-        metrics=args.column_choice,
-        color_by=args.color_by,
-        tax_rank=args.tax_level,
-        meta_col=args.meta_col,
-        fig_size=_fig_size_tuple(args) or (5, 5),
-        fmt=args.format,
-    )
-
-
-def _bakta_metrics_dict(args):
-    if not args.bakta_metrics:
-        return None
-
-    user_metrics = [m.strip().lower() for m in args.bakta_metrics]
-    bakta_metric_map = {
-        "cds": ("CDS", "cdss"),
-        "hypotheticals": ("Hypotheticals", "hypotheticals"),
-        "rrnas": ("rRNAs", "rrnas"),
-        "trnas": ("tRNAs", "trnas"),
-        "crispr": ("CRISPR", "crispr arrays"),
-        "pseudogenes": ("Pseudogenes", "pseudogenes"),
-    }
-
-    metrics_dict = {}
-    for m in user_metrics:
-        if m in bakta_metric_map:
-            disp, col = bakta_metric_map[m]
-            metrics_dict[disp] = col
-
-    return metrics_dict or None
-
-
-def run_bakta_annotation(args):
-    dfs = load_dfs(
-        coverm=None,
-        checkm=None,
-        checkm2=args.checkm2_file,
-        gtdb=args.gtdb_file,
-        drep=None,
-        bakta=args.bakta_file,
-        metadata=args.metadata_file,
-    )
-    check_path(args.output)
-
-    bakta_annotation_plot(
-        dfs,
-        args.output,
-        metrics=_bakta_metrics_dict(args),
-        color_by=args.color_by,
-        tax_rank=args.tax_level,
-        meta_col=args.meta_col,
-        plot_ratio=args.ratio,
-    )
-
-
 def run_all(args):
     """
-    Runs all what it can based on provided inputs.
+    Runs all based on provided inputs.
     """
     dfs = load_dfs(
         args.coverm_path,
@@ -527,6 +569,7 @@ def run_all(args):
         bakta=args.bakta_file,
         quast=args.quast_file,
         metadata=args.metadata_file,
+        pathways=args.pathways_file
     )
     check_path(args.output)
 
@@ -536,11 +579,13 @@ def run_all(args):
     comp_fig_size = _fig_size_tuple(args)
 
     tax_rank = args.tax_level or args.rank or "phylum"
-    aq_tax_rank = args.tax_level or args.rank or "phylum"
 
     # sankey
     if dfs["gtdb"] is not None:
+        reset_matplotlib()
         generate_taxa_sanky(dfs["gtdb"], args.output, args.rank)
+
+        reset_matplotlib()
         taxa_sanky_rank(dfs["gtdb"], args.output, args.rank)
 
     # comp/conta
@@ -548,27 +593,32 @@ def run_all(args):
     run_tax = args.tax or (not args.quality and not args.tax)
 
     if run_quality and dfs["checkm"] is not None:
-        completeness_contamination_plot(
+        run_clean(
+            completeness_contamination_plot,
             dfs["checkm"], args.output, tag="checkm",
             title="CheckM: Completeness vs Contamination",
             fig_size=comp_fig_size or (9, 8), fmt=args.format
         )
     if run_quality and dfs["checkm2"] is not None:
-        completeness_contamination_plot(
+        run_clean(
+            completeness_contamination_plot,
             dfs["checkm2"], args.output, tag="checkm2",
             title="CheckM2: Completeness vs Contamination",
             fig_size=comp_fig_size or (9, 8), fmt=args.format
         )
 
     if run_tax and dfs["gtdb"] is not None and dfs["checkm"] is not None and dfs["checkm2"] is not None:
-        rank_completeness_contamination_plot(
+        run_clean(
+            rank_completeness_contamination_plot,
             dfs["checkm"], dfs["checkm2"], dfs["gtdb"], tax_rank,
             args.output, args.n,
             fig_size=comp_fig_size or (10, 8), fmt=args.format
         )
 
+    # drep-cluster-annot
     if dfs.get("drep") is not None and dfs.get("gtdb") is not None:
-        drep_cluster_plot(
+        run_clean(
+            drep_cluster_plot,
             dfs["drep"], dfs["gtdb"], args.output,
             tax_levels=args.tax_levels, top_n=args.n,
             fig_size=comp_fig_size, fmt=args.format,
@@ -576,10 +626,46 @@ def run_all(args):
             checkm2_df=dfs.get("checkm2"),
             quast_df=dfs.get("quast"),
             bakta_df=dfs.get("bakta"),
+       )
+    
+    # drep-cluster-func
+    if dfs.get("drep") is not None and dfs.get("gtdb") is not None and dfs.get("pathways") is not None:
+        run_clean(
+            drep_cluster_functional_plot,
+            dfs["drep"],
+            dfs["gtdb"],
+            dfs["pathways"],
+            args.output,
+            top_n=args.n,
+            fmt=args.format,
+            tax_levels=args.tax_levels,
+            top_modules=args.top_modules,
+            fig_size=_fig_size_tuple(args),
+            tax_levels_space=args.tax_levels_space,
+        )
+    
+    # pathway-heatmap-completeness
+    if dfs.get("pathways") is not None:
+        run_clean(
+            pathway_module_heatmap,
+            pathway_df=dfs["pathways"],
+            output_path=args.output,
+            top_modules=args.top_modules,
+            mode=args.mode,
+            fmt=args.format,
+            fig_size=_fig_size_tuple(args),
+            show_module_labels=args.show_module_labels,
+            row_fontsize=args.row_fontsize,
+            representatives_df=dfs.get("drep"),
+            gtdb_df=dfs.get("gtdb"),
+            representatives_only=args.representatives_only,
+            top_representatives=args.top_representatives,
         )
 
+    # heatmap
     if dfs.get("coverm") is not None and dfs.get("gtdb") is not None:
-        mag_heatmap(
+        run_clean(
+            mag_heatmap,
             dfs["coverm"], dfs["gtdb"], args.output,
             rank=tax_rank,
             metadata_df=dfs.get("metadata"),
@@ -599,27 +685,6 @@ def run_all(args):
             log_top=not args.no_log,
         )
 
-    if dfs.get("quast") is not None and dfs.get("checkm2") is not None:
-        assembly_quality_plot(
-            dfs, args.output,
-            metrics=args.column_choice,
-            color_by=args.color_by,
-            tax_rank=aq_tax_rank,
-            meta_col=args.meta_col,
-            fig_size=comp_fig_size or (5, 5),
-            fmt=args.format,
-        )
-
-    if dfs.get("bakta") is not None and dfs.get("checkm2") is not None:
-        bakta_annotation_plot(
-            dfs, args.output,
-            metrics=_bakta_metrics_dict(args),
-            color_by=args.color_by,
-            tax_rank=aq_tax_rank,
-            meta_col=args.meta_col,
-            plot_ratio=args.ratio,
-        )
-
 
 # ---- Main ---- #
 def main(argv=None):
@@ -628,16 +693,16 @@ def main(argv=None):
 
     if args.command == "sample-heatmap":
         run_sample_heatmap(args)
-    elif args.command == "drep-cluster":
+    elif args.command == "drep-cluster-annot":
         run_drep_cluster(args)
+    elif args.command == "drep-cluster-func":
+        run_drep_cluster_func(args)
+    elif args.command == "pathway-module-heatmap":
+        run_pathway_module_heatmap(args)
     elif args.command == "comp-conta":
         run_comp_conta(args)
     elif args.command == "taxa-sankey":
         run_taxa_sankey(args)
-    elif args.command == "assembly-quality":
-        run_assembly_quality(args)
-    elif args.command == "bakta-annotation":
-        run_bakta_annotation(args)
     elif args.command == "all":
         run_all(args)
     else:

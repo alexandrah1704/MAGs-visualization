@@ -1,7 +1,7 @@
 import os, re
 import numpy as np
-import pandas as pd                     # Tabellen
-import seaborn as sns                   # High-level Plots
+import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.gridspec as gridspec
@@ -24,12 +24,28 @@ def normalize_id(s: str) -> str:
     return normalize_genome_id(s)
 
 
-def extract_rank(classification, rank):
-        prefix = prefix_map.get(rank)
-        try:
-            return next(x for x in classification.split(';') if x.startswith(f'{prefix}__')).replace(f'{prefix}__', '').strip()
-        except StopIteration:
-            return None
+def extract_rank(tax, rank: str):
+    """Extract a GTDB rank from a taxonomy string."""
+    if pd.isna(tax):
+        return None
+    prefix_map = {
+        "domain": "d__",
+        "phylum": "p__",
+        "class": "c__",
+        "order": "o__",
+        "family": "f__",
+        "genus": "g__",
+        "species": "s__",
+    }
+    prefix = prefix_map.get(rank.lower())
+    if not prefix:
+        raise ValueError(f"Invalid rank '{rank}'. Choose one of {list(prefix_map.keys())}.")
+    for part in str(tax).split(";"):
+        part = part.strip()
+        if part.startswith(prefix):
+            name = part[len(prefix):].strip()
+            return name if name else "Unclassified"
+    return "Unclassified"
 
 def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag: str = "checkm", title: str | None = None,
                                     fig_size=(9,8), fmt: str = "png",):
@@ -116,7 +132,7 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
     ax_histx.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0, decimals=0))
     ax_histx.set_ylabel("% of MAGs")
 
-    # Sicheres y-Limit
+    # Save y-Limit
     sum_p_x = p_low + p_mq + p_hq
     max_val_x = float(np.nanmax(sum_p_x)) if sum_p_x.size > 0 else 0.0
     if not np.isfinite(max_val_x) or max_val_x == 0:
@@ -199,7 +215,7 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
                                          n, fig_size=(10,8), fmt: str = "png",):
     """
     Create two plots for CheckM and CheckM2:
-    Completeness vs Contamination, colored by GTDB rank,
+    Completeness vs Contamination, colored by GTDB rank.
     """
 
     def _plot_rank(df_checkm, gtdb_df, rank, output_path, n, tag, fig_size, fmt):
@@ -361,7 +377,7 @@ def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
         has_bin = meta_index_str.str.contains("_bin_").any()
 
         def sample_key(s):
-            """Für Sample-Level: normalize + Stamm vor erstem '_' oder '.'"""
+            """For Sample-Level: normalize +  '_' or '.'"""
             if pd.isna(s):
                 return s
             s_norm = normalize_id(str(s))
@@ -395,7 +411,6 @@ def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
         raw = df[meta_col]
         raw_non_na = raw.dropna()
 
-        # bool
         bool_like = False
         if is_bool_dtype(raw_non_na):
             bool_like = True

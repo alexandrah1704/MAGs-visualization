@@ -1,6 +1,6 @@
 <p align="left">
   <h1 align="left">Visualizations of MAGs</h1>
-  <p align="left">A toolkit for visualizing MAG quality, taxonomy, clustering, assembly metrics, detection patterns and genome annotations.</p>
+  <p align="left">A toolkit for visualizing MAG quality, taxonomy, clustering, abundance patterns, and functional annotation.</p>
 </p>
 
 ---
@@ -8,7 +8,7 @@
 ## Installation
 This tool is distributed as a Python package with a command-line interface (CLI).
 
-There are two supported ways to install and use it:
+There are two main ways to install and use the tool:
 
 - Recommended (users): install the package from source and use the command-line tool
 
@@ -88,16 +88,16 @@ mags-visualization --help
 
 ---
 
-## What is this tool ?
+## What is this tool?
 
 This tool generates a variety of visualizations for MAGs, including:
 
-- Taxonomic sankey diagrams
-- Completeness-/Contamination-Plots
+- Taxonomic Sankey diagrams
+- Completeness/Contamination-Plots
 - Heatmaps
-- dRep-cluster visualization
-- assembly quality plot
-- bakta plot
+- dRep cluster visualization with taxonomic annotation
+- dRep cluster visualization with functional annotation (KEGG pathway completeness)
+- Standalone KEGG pathway module heatmaps
 - Rank distribution diagram...
 
 All plots are saved in a user-defined output directory.
@@ -124,8 +124,9 @@ Optional:
 | --quast                | QUAST assembly statistics             |
 | --bakta                | Bakta annotation table                |
 | --metadata             | Metadata table for coloring plots     |
-| --metadata_heatmap_new | Metadata for heatmap visualization    |
+| --metadata             | Metadata for heatmap visualization    |
 | --amber                | CAMI Amber binning evaluation         |
+| --pathways             | KEGG pathway completeness             |
 
 ### Input files per subcommand
 
@@ -141,19 +142,20 @@ Optional:
 - `--gtdb` (required for `--mode tax`)
 - `--metadata` + `--meta_col` (required for `--mode meta`)
 
-#### drep-cluster
+#### drep-cluster-annot
 - `--drep` (required)
 - `--gtdb` (required)
 - `--checkm2`, `--quast`, `--bakta` (required for annotated heatmap)
 
-#### assembly-quality
-- `--quast` (required)
-- `--checkm2` (required)
+#### drep-cluster-func
+- `--drep` (required)
 - `--gtdb` (required)
+- `--pathways` (required for functional annotation heatmap)
 
-#### bakta-annotation
-- `--bakta` (required)
-- `--checkm2` (required)
+#### pathway-module-heatmap
+- `--drep` (required)
+- `--gtdb` (required)
+- `--pathways` (required)
 
 #### taxa-sankey
 - `--gtdb` (required)
@@ -169,13 +171,16 @@ mags-visualization <subcommand> [OPTIONS]
 ```
 
 Available subcommands:
-- sample-heatmap - MAG detection heatmap per sample
-- drep-cluster -dRep cluster visualization
-- comp-conta - completeness/contamination plots
-- taxa-sankey - GTDB taxonomy sankey plots
-- assembly-quality - QUAST-based assembly quality plots
-- bakta-annotation - Bakta annontation plots
-- all - legacy mode (runs multiple plots in one command)
+- `sample-heatmap` - MAG detection heatmap per sample
+- `drep-cluster-annot` - dRep cluster visualization with taxonomic/assembly annotation
+- `drep-cluster-func` - dRep cluster overview with taxonomy and functional module heatmap
+- `pathway-module-heatmap` - heatmap of KEGG pathway module completeness across MAGs
+- `comp-conta` - completeness/contamination plots
+- `taxa-sankey` - GTDB taxonomy sankey plots
+- `all` - legacy mode running multiple plots in one command
+
+The `all` subcommand is mainly intended for testing.
+For Galaxy integration, the dedicated subcommands are recommended.
 
 ## Command-Line usage
 
@@ -187,13 +192,13 @@ mags-visualization --help
 ### Show help for a specific plot
 ```bash
 mags-visualization sample-heatmap --help
-mags-visualization drep-cluster --help
+mags-visualization drep-cluster-annot --help
 ```
 
 ### Example: sample heatmap
 ```bash
 
-mags-visualilzation sample-heatmap \
+mags-visualization sample-heatmap \
   --coverm test-data/coverm.tsv \
   --gtdb test-data/gtdb.tsv \
   --output out/sample-heatmap
@@ -211,6 +216,7 @@ mags-visualization all \
   --drep test-data/drep.csv \
   --quast test-data/quast.tsv \
   --bakta test-data/bakta.tsv \
+  --pathways test-data/kegg_pathway_completeness.tsv \
   --metadata test-data/metadata.tsv \
   --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" \
   --color_by tax \
@@ -277,7 +283,7 @@ To show in the heatmap more than one metadata column:
 ```
 
 
-## The following options are only available for the corresponding subcommands (e.g. `sample-heatmap`, `bakta-annotation`, `assembly-quality`)
+## The following options are only available for specific subcommands
 
 ## Heatmap Options
 ### Plot features
@@ -303,30 +309,6 @@ To show in the heatmap more than one metadata column:
 --max_col 10  # How many taxonomy names are shown (top 10)
 ```
 
-## Bakta Options
-### Choose annotation features
-```bash
---bakta_metrics cds hypotheticals rrnas trnas crispr
-```
-
-### Plot feature
-```bash
---ratio  # e.g. hypotheticals/CDs
-```
-
-Example:
-```bash
---bakta_metrics hypotheticals
---ratio
-```
-
-## Assembly Options
-### Choose annotation features
-```bash
---column_choice "N50" "GC (%)" ...
---color_by quality  # or tax, meta
-```
-
 ## dRep Options
 ```bash
 --top_n 30  # show top 30 clusters with most cluster members
@@ -334,28 +316,3 @@ Example:
 
 ## Examples
 Full examples can be found in ['use-cases/README.md'](use-cases/README.md)
-
-### Example with color configuration
-```bash
---quality   # or color_by quality
-
---tax             # → Checkm/Checkm2 plots colored by taxonomy \
---color_by tax    # → Assembly- and -Bakta plots colored by taxonomy \
---tax_level genus \
-
---color_by meta \
---meta_col weather \
---bakta_metrics hypotheticals rrnas \
---ratio \
-```
-The plots you will get in addition:
-Completeness-Contamination plots colored by meta weather, Bakta hypotheticals and rrnas with ratios and also assembly_quality colored by meta column weather.
-
-If you want a specific assembly_quality plot from quast, you need to specify the column:
-```bash
---column_choice "N50" "GC (%)" ... \
---color_by tax \
---tax_level genus \
-```
-
-

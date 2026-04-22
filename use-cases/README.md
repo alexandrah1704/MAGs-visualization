@@ -1,18 +1,18 @@
 # Example use case
-All commands below assume that the command-line tool `mags-visualization`is installed and available in your environment.
+All commands below assume that the command-line tool `mags-visualization` is installed and available in your environment.
 
 Each plot is generated using a dedicated **subcommand**.
 
 The working directory should be **MAGs-visualization/use-cases** 
 so that the example paths resolve correctly.
 
-If the command is not available, install the package first (['README.md'](../README.md))
+If the command is not available, install the package first: ['README.md'](../README.md)
 
 # Bash
 ## Bee Gut Microbiome
 
 ```bash
-use_case_folder="bee-use-case"
+use_case_folder="bee-use-case/data"
 ```
 
 ### Sample heatmap
@@ -21,9 +21,9 @@ use_case_folder="bee-use-case"
 
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
-  --metadata "$use_case_folder/data/metadata.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --metadata "$use_case_folder/metadata.tsv" \
   --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" \
   --tax_level genus \
   --top_bar_spacer -1.0 \
@@ -33,13 +33,13 @@ mags-visualization sample-heatmap \
   --top_bar_height 2.0
 ```
 
-* Specis
+* Species
 
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
-  --metadata "$use_case_folder/data/metadata.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --metadata "$use_case_folder/metadata.tsv" \
   --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" \
   --tax_level species \
   --top_bar_spacer -1.0 \
@@ -49,10 +49,10 @@ mags-visualization sample-heatmap \
   --top_bar_height 2.0
 ```
 
-### dRep cluster plot
+### dRep cluster plot with annotation (QUAST, BAKTA)
 
 ```bash
-mags-visualization drep-cluster \
+mags-visualization drep-cluster-annot \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --drep "$use_case_folder/drep.csv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
@@ -60,6 +60,55 @@ mags-visualization drep-cluster \
   --quast "$use_case_folder/quast.tsv" \
   --output out
 ```
+
+### dRep cluster plot with functional annotation (KEGG pathway completeness)
+
+```bash
+mags-visualization drep-cluster-func \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules 30 \
+  --mode mean \
+  --output out
+  ```
+
+To include all modules, use `--top_modules None`.
+
+```bash
+mags-visualization drep-cluster-func \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules None \
+  --mode mean \
+  --output out
+  ```
+
+Available modes:
+- `mean`: highlight core functional modules
+- `variance`: highlight modules differing most between clusters
+- `both`: create both plots
+
+### Pathway Module Heatmap
+
+Instead of the drep cluster plot above, it is possible to produce just the heatmap without the bars.
+
+```bash
+mags-visualization pathway-module-heatmap \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules 30 \
+  --top_representatives 30 \
+  --representatives_only \
+  --sort_by cluster_size \
+  --show_module_labels \
+  --output out
+```
+
+Use `--show_module_labels` to display KEGG module accessions on the x-axis.
+For larger plots, omitting labels can improve readability.
 
 ### Completeness / Contamination
 
@@ -69,27 +118,6 @@ mags-visualization comp-conta \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
   --mode quality \
-  --output out
-```
-
-### Assembly quality (QUAST)
-
-```bash
-mags-visualization assembly-quality \
-  --quast "$use_case_folder/quast.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --color_by tax \
-  --tax_level phylum \
-  --output out
-```
-
-### Bakta annotation
-
-```bash
-mags-visualization bakta-annotation \
-  --bakta "$use_case_folder/bakta.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
   --output out
 ```
 
@@ -105,15 +133,17 @@ mags-visualization taxa-sankey \
 ## Macroalgal microbiome
 
 ```bash
-use_case_folder="marine-use-case"
+use_case_folder="marine-use-case/data"
 ```
 
 ### Sample heatmap
 
+* Family
+
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
   --tax_level family \
   --no_log \
   --top_bar_height 2.0 \
@@ -121,10 +151,12 @@ mags-visualization sample-heatmap \
   --output "$use_case_folder/plots"
 ```
 
+* Species
+
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
   --tax_level species \
   --output "$use_case_folder/plots"
 ```
@@ -132,12 +164,51 @@ mags-visualization sample-heatmap \
 ### dRep cluster plot
 
 ```bash
-mags-visualization drep-cluster \
+mags-visualization drep-cluster-annot \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --drep "$use_case_folder/drep.csv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
   --bakta "$use_case_folder/bakta.tsv" \
   --quast "$use_case_folder/quast.tsv" \
+  --output out
+```
+
+### dRep cluster plot with functional annotation (KEGG pathway completeness)
+
+```bash
+mags-visualization drep-cluster-func \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules 30 \
+  --mode mean \
+  --output out
+  ```
+
+To include all modules, use `--top_modules None`.
+
+```bash
+mags-visualization drep-cluster-func \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules None \
+  --mode mean \
+  --output out
+  ```
+
+### Pathway Module Heatmap
+
+```bash
+mags-visualization pathway-module-heatmap \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules 30 \
+  --top_representatives 30 \
+  --representatives_only \
+  --sort_by cluster_size \
+  --show_module_labels \
   --output out
 ```
 
@@ -149,27 +220,6 @@ mags-visualization comp-conta \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
   --mode quality \
-  --output out
-```
-
-### Assembly quality (QUAST)
-
-```bash
-mags-visualization assembly-quality \
-  --quast "$use_case_folder/quast.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --color_by tax \
-  --tax_level phylum \
-  --output out
-```
-
-### Bakta annotation
-
-```bash
-mags-visualization bakta-annotation \
-  --bakta "$use_case_folder/bakta.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
   --output out
 ```
 
@@ -212,12 +262,51 @@ If without --no_log:
 ### dRep cluster plot
 
 ```bash
-mags-visualization drep-cluster \
+mags-visualization drep-cluster-annot \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --drep "$use_case_folder/drep.csv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
   --bakta "$use_case_folder/bakta.tsv" \
   --quast "$use_case_folder/quast.tsv" \
+  --output out
+```
+
+### dRep cluster plot with functional annotation (KEGG pathway completeness)
+
+```bash
+mags-visualization drep-cluster-func \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules 30 \
+  --mode mean \
+  --output out
+  ```
+
+To include all modules, use `--top_modules None`.
+
+```bash
+mags-visualization drep-cluster-func \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules None \
+  --mode mean \
+  --output out
+  ```
+
+### Pathway Module Heatmap
+
+```bash
+mags-visualization pathway-module-heatmap \
+  --drep "$use_case_folder/drep.csv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --pathways "$use_case_folder/kegg_pathway_completeness.tsv" \
+  --top_modules 30 \
+  --top_representatives 30 \
+  --representatives_only \
+  --sort_by cluster_size \
+  --show_module_labels \
   --output out
 ```
 
@@ -229,27 +318,6 @@ mags-visualization comp-conta \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
   --mode quality \
-  --output out
-```
-
-### Assembly quality (QUAST)
-
-```bash
-mags-visualization assembly-quality \
-  --quast "$use_case_folder/quast.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --color_by tax \
-  --tax_level phylum \
-  --output out
-```
-
-### Bakta annotation
-
-```bash
-mags-visualization bakta-annotation \
-  --bakta "$use_case_folder/bakta.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
   --output out
 ```
 
@@ -265,16 +333,18 @@ mags-visualization taxa-sankey \
 ## Termite Head Microbiome
 
 ```bash
-use_case_folder="termite-use-case"
+use_case_folder="termite-use-case/data"
 ```
 
 ### Sample heatmap
 
+* Genus
+
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
-  --metadata "$use_case_folder/data/metadata.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --metadata "$use_case_folder/metadata.tsv" \
   --meta_cols "Species" "Casts" "Colony" \
   --tax_level genus \
   --no_log \
@@ -284,11 +354,13 @@ mags-visualization sample-heatmap \
   --output "$use_case_folder/plots"
 ```
 
+* Species
+
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
-  --metadata "$use_case_folder/data/metadata.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --metadata "$use_case_folder/metadata.tsv" \
   --meta_cols "Species" "Casts" "Colony" \
   --tax_level species \
   --no_log \
@@ -298,11 +370,13 @@ mags-visualization sample-heatmap \
   --output "$use_case_folder/plots"
 ```
 
+* Family
+
 ```bash
 mags-visualization sample-heatmap \
-  --coverm "$use_case_folder/data/coverm.tsv" \
-  --gtdb "$use_case_folder/data/gtdb.tsv" \
-  --metadata "$use_case_folder/data/metadata.tsv" \
+  --coverm "$use_case_folder/coverm.tsv" \
+  --gtdb "$use_case_folder/gtdb.tsv" \
+  --metadata "$use_case_folder/metadata.tsv" \
   --meta_cols "Species" "Casts" "Colony" \
   --tax_level family \
   --no_log \
@@ -315,7 +389,7 @@ mags-visualization sample-heatmap \
 ### dRep cluster plot
 
 ```bash
-mags-visualization drep-cluster \
+mags-visualization drep-cluster-annot \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --drep "$use_case_folder/drep.csv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
@@ -331,18 +405,6 @@ mags-visualization comp-conta \
   --checkm2 "$use_case_folder/checkm2.tsv" \
   --gtdb "$use_case_folder/gtdb.tsv" \
   --mode quality \
-  --output out
-```
-
-### Assembly quality (QUAST)
-
-```bash
-mags-visualization assembly-quality \
-  --quast "$use_case_folder/quast.tsv" \
-  --checkm2 "$use_case_folder/checkm2.tsv" \
-  --gtdb "$use_case_folder/gtdb.tsv" \
-  --color_by tax \
-  --tax_level genus \
   --output out
 ```
 
@@ -373,6 +435,7 @@ mags-visualization all `
   --drep "$use_case_folder\drep.csv" `
   --quast "$use_case_folder\quast.tsv" `
   --bakta "$use_case_folder\bakta.tsv" `
+  --pathways "$use_case_folder\kegg_pathway_completeness.tsv" `
   --color_by tax `
   --tax_level genus `
   --max_col 10 `
@@ -393,6 +456,7 @@ mags-visualization all `
   --drep "$use_case_folder\drep.csv" `
   --quast "$use_case_folder\quast.tsv" `
   --bakta "$use_case_folder\bakta.tsv" `
+  --pathways "$use_case_folder\kegg_pathway_completeness.tsv" `
   --metadata "$use_case_folder\metadata.tsv" `
   --meta_cols "Infection by Nosema ceranae" "Chronic exposure to neonicotinoid" "Treatment with probiotic" `
   --color_by tax `
@@ -421,6 +485,7 @@ mags-visualization all `
   --drep "$use_case_folder\drep.csv" `
   --quast "$use_case_folder\quast.tsv" `
   --bakta "$use_case_folder\bakta.tsv" `
+  --pathways "$use_case_folder\kegg_pathway_completeness.tsv" `
   --metadata "$use_case_folder\metadata.tsv" `
   --meta_cols "Geographic origin of the air mass" "Condition" "Season" `
   --color_by tax `
