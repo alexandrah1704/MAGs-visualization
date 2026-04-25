@@ -316,3 +316,13 @@ To show in the heatmap more than one metadata column:
 
 ## Examples
 Full examples can be found in ['use-cases/README.md'](use-cases/README.md)
+
+The examples include sample heatmaps, taxonomy sankey plots, completeness/contamination plots, and dRep cluster visualizations with functional annotation.
+
+### dRep cluster plot
+
+![dRep cluster plot](use-cases/bee-use-case/plots/drep_cluster_top30_phylum.png)
+
+### Completeness/contamination plot
+
+![Completeness/contamination plot](use-cases/bee-use-case/plots/comp_conta_marginals_checkm2.png)
