@@ -349,7 +349,7 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
         ax_histy.tick_params(axis="both", length=4, labelleft=True, labelbottom=True)
 
         # --- Save ---
-        out = os.path.join(output_path, f"comp_conta_by_rank_marginals_{tag}.png")
+        out = os.path.join(output_path, f"comp_conta_by_rank_marginals_{tag}.{fmt}")
         fig.savefig(out, dpi=220)
 
     # Run for both tools
