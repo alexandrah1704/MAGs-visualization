@@ -528,7 +528,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
     if mode in {"mean", "both"}:
         plot_modes.append(("mean", "core"))
     if mode in {"variance", "both"}:
-        plot_modes.append(("variance", "differrence"))
+        plot_modes.append(("variance", "difference"))
     
     for select_mode, suffix in plot_modes:
         heatmap_df_core, module_meta_core, class_blocks_core = prepare_pathway_matrix(

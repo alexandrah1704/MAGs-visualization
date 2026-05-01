@@ -130,7 +130,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
 
     # drep
     if drep is not None:
-        dfs["drep"] = read_table(drep, index_col=None, prefer_tsv=False)
+        dfs["drep"] = read_table(drep, index_col=None, prefer_tsv=None)
         print(f"[INFO] drep loaded:   {dfs['drep'].shape}")
 
         # dRep cleanup to ensure genome column exists
