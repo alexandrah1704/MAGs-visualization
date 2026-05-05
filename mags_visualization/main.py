@@ -130,7 +130,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
 
     # drep
     if drep is not None:
-        dfs["drep"] = read_table(drep, index_col=None, prefer_tsv=False)
+        dfs["drep"] = read_table(drep, index_col=None, prefer_tsv=None)
         print(f"[INFO] drep loaded:   {dfs['drep'].shape}")
 
         # dRep cleanup to ensure genome column exists
@@ -258,6 +258,8 @@ def build_parser():
     p.add_argument("--top_modules", type=int_or_none, default=35, dest="top_modules")
     p.add_argument("--mode", choices=["mean", "variance", "both"], default="mean", dest="mode",
                    help="mean = core modules, variance = differential modules, or both.")
+    p.add_argument("--module_label", choices=["id", "name", "both"], default="id",
+                   dest="module_label", help="Module labels on the x-axis: id, name or both")
     
     # ---- pathway-module-heatmap ----
     p = sub.add_parser("pathway-module-heatmap", help="Create a MAG vs pathway-module heatmap grouped by pathway_class.")
@@ -281,6 +283,8 @@ def build_parser():
     p.add_argument("--top_representatives", type=int, default=None, dest="top_representatives",
                help="Limit number of representative MAGs (e.g. top 30)")
     p.add_argument("--sort_by", choices=["cluster_size", "none"], default="cluster_size", help="How to select top representatives")
+    p.add_argument("--module_label", choices=["id", "name", "both"], default="id",
+                   dest="module_label", help="Module labels on the x-axis: id, name, or both.")
 
     # ---- comp-conta ----
     p = sub.add_parser("comp-conta", help="Create completeness/contamination plots.")
@@ -451,6 +455,7 @@ def run_drep_cluster_func(args):
         fmt=args.format,
         mode=args.mode,
         tax_levels_space=args.tax_levels_space,
+        module_label=args.module_label,
     )
 
 
@@ -477,6 +482,7 @@ def run_pathway_module_heatmap(args):
         fig_size=_fig_size_tuple(args),
         show_module_labels=args.show_module_labels,
         row_fontsize=args.row_fontsize,
+        module_label=args.module_label,
         representatives_df=dfs.get("drep"),
         gtdb_df=dfs.get("gtdb"),
         representatives_only=args.representatives_only,

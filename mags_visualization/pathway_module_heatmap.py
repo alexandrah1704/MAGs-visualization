@@ -76,6 +76,46 @@ def get_plot_matched_representatives(drep_df: pd.DataFrame, gtdb_df: pd.DataFram
 
     return cluster_data["representative"].tolist()
 
+
+def simplify_module_name(name: str) -> str:
+    if pd.isna(name):
+        return ""
+
+    name = str(name)
+
+    # cut at "("
+    if "(" in name:
+        name = name.split("(")[0]
+
+    # cut at ","
+    if "," in name:
+        name = name.split(",")[0]
+    return name.strip()
+
+
+def build_module_labels(module_meta: pd.DataFrame, module_label: str = "id") -> list[str]:
+    """
+    x-axis labels for KEGG modules
+    module_label:
+    - id: module accession
+    - name: module name
+    - both: accession and name
+    """
+    if module_label == "id":
+        return module_meta["module_accession"].astype(str).tolist()
+
+    if module_label == "name":
+        return module_meta["pathway_name"].apply(simplify_module_name).tolist()
+
+    if module_label == "both":
+        return (
+            module_meta["module_accession"].astype(str)
+            + " | "
+            + module_meta["pathway_name"].apply(simplify_module_name)
+        ).tolist()
+    raise ValueError("module_label must be one of: id, name, both")
+
+
 def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = None,
     mode: str = "mean", representatives_df: pd.DataFrame = None,
     gtdb_df: pd.DataFrame = None, representatives_only: bool = False,
@@ -177,8 +217,8 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
 
 def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modules: int | None = None,
     mode: str = "mean", fmt: str = "png", fig_size=None, show_module_labels: bool = True,
-    row_fontsize: int = 8, representatives_df: pd.DataFrame = None, gtdb_df: pd.DataFrame = None,
-    representatives_only: bool = False, top_representatives: int | None = None):
+    row_fontsize: int = 8, module_label: str = "id", representatives_df: pd.DataFrame = None, 
+    gtdb_df: pd.DataFrame = None, representatives_only: bool = False, top_representatives: int | None = None):
     """
     Create a heatmap shwoing pathway/module completeness across MAGs.
 
@@ -217,7 +257,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     values = heatmap_df.to_numpy(dtype=float)
     masked = np.ma.masked_invalid(values)
 
-    cmap = cm.get_cmap("magma").copy()
+    cmap = cm.get_cmap("Reds").copy()
     cmap.set_bad(color="white")
     norm = Normalize(vmin=0, vmax=100)
 
@@ -234,10 +274,12 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     # Module labels on x-axis if wanted
     ax.set_xticks(np.arange(n_cols))
     if show_module_labels:
+        module_labels = build_module_labels(module_meta, module_label=module_label)
+
         ax.set_xticklabels(
-            module_meta["module_accession"].tolist(),
+            module_labels,
             rotation=90,
-            fontsize=6 if n_cols > 30 else 7,
+            fontsize=7 if module_label in {"name", "both"} or n_cols > 30 else 7,
         )
     else:
         ax.set_xticklabels([])
@@ -317,7 +359,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
 
         size_ax = fig.add_axes([pos.x1 + 0.01, pos.y0, 0.02, pos.height])
 
-        size_cmap = cm.get_cmap("Reds").copy()
+        size_cmap = cm.get_cmap("Oranges").copy()
         size_cmap.set_bad(color="white")
 
         size_im = size_ax.imshow(
@@ -361,7 +403,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
 
     # ---- Colorbars ----
     pos = ax.get_position()
-    cax = fig.add_axes([pos.x0, pos.y0 - 0.22, 0.015, 0.14])
+    cax = fig.add_axes([pos.x0 - 0.06, pos.y0 - 0.23, 0.015, 0.14])
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.ax.tick_params(labelsize=7)
     cb.set_label("Pathway completeness (%)", fontsize=8, labelpad=2)

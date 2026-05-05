@@ -24,6 +24,45 @@ def simplify_pathway_class(value: str) -> str:
     return "Unclassified"
 
 
+def simplify_module_name(name: str) -> str:
+    if pd.isna(name):
+        return ""
+
+    name = str(name)
+
+    # cut at "("
+    if "(" in name:
+        name = name.split("(")[0]
+
+    # cut at ","
+    if "," in name:
+        name = name.split(",")[0]
+    return name.strip()
+
+
+def build_module_labels(module_meta: pd.DataFrame, module_label: str = "id") -> list[str]:
+    """
+    x-axis labels for KEGG modules
+    module_label:
+    - id: module accession
+    - name: module name
+    - both: accession and name
+    """
+    if module_label == "id":
+        return module_meta["module_accession"].astype(str).tolist()
+
+    if module_label == "name":
+        return module_meta["pathway_name"].apply(simplify_module_name).tolist()
+
+    if module_label == "both":
+        return (
+            module_meta["module_accession"].astype(str)
+            + " | "
+            + module_meta["pathway_name"].apply(simplify_module_name)
+        ).tolist()
+    raise ValueError("module_label must be one of: id, name, both")
+
+
 def prepare_cluster_data(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, tax_levels, top_n: int, pathway_df=None):
     """Build table of top_n dRep cluster with their representatives and taxonomy."""
     drep = drep_df.copy()
@@ -187,7 +226,8 @@ def prepare_pathway_matrix(pathway_df: pd.DataFrame, representatives: list[str],
 
 def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total_clusters: int,
     heatmap_df: pd.DataFrame, module_meta: pd.DataFrame, class_blocks, output_path: str,
-    tax_levels, top_n: int, fmt: str, suffix: str, tax_levels_space: float = 0.3, fig_size=None):
+    tax_levels, top_n: int, fmt: str, suffix: str, tax_levels_space: float = 0.3, 
+    fig_size=None, module_label: str = "id"):
     """
     Create a single functional cluster plot:
     - horizontal bar chart (MAG counts per cluster)
@@ -310,7 +350,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     values = heatmap_display_df.to_numpy(dtype=float)
     masked = np.ma.masked_invalid(values)
 
-    cmap = cm.get_cmap("magma").copy()
+    cmap = cm.get_cmap("Reds").copy()
     cmap.set_bad(color="white")
     norm = Normalize(vmin=0, vmax=100)
 
@@ -329,10 +369,13 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     ax_heatmap.set_yticks([])
 
     ax_heatmap.set_xticks(np.arange(n_cols))
+
+    module_labels = build_module_labels(module_meta, module_label=module_label)
+
     ax_heatmap.set_xticklabels(
-        module_meta["module_accession"].tolist(),
+        module_labels,
         rotation=90,
-        fontsize=6 if n_cols > 25 else 7,
+        fontsize=6 if module_label in {"name", "both"} or n_cols > 25 else 7,
     )
     ax_heatmap.tick_params(axis="x", bottom=True, labelbottom=True, top=False, length=2)
 
@@ -407,7 +450,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
 
     # ---- Colorbar ----
     pos = ax_heatmap.get_position()
-    cax = fig.add_axes([pos.x0, pos.y0 - 0.20, 0.02, 0.12])
+    cax = fig.add_axes([pos.x0 - 0.06, pos.y0 - 0.20, 0.02, 0.12])
     cb = fig.colorbar(im, cax=cax, orientation="vertical")
     cb.ax.tick_params(labelsize=7)
     cb.set_label("Pathway completeness (%)", fontsize=7, labelpad=2)
@@ -450,8 +493,9 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
 
 # ---- Main plot function ----
 def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, pathway_df: pd.DataFrame,
-                     output_path: str, tax_levels=("phylum", "genus"), top_n: int = 30, top_modules: int | None = 35, fmt: str = "png",
-                     mode: str = "mean", tax_levels_space: float = 0.3, fig_size=None):
+                     output_path: str, tax_levels=("phylum", "genus"), top_n: int = 30, top_modules: int | None = 35, 
+                     fmt: str = "png", mode: str = "mean", tax_levels_space: float = 0.3, 
+                     fig_size=None, module_label: str ="id"):
     """
     Create a dRep cluster plot with a functional kegg pathway heatmap.
 
@@ -528,7 +572,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
     if mode in {"mean", "both"}:
         plot_modes.append(("mean", "core"))
     if mode in {"variance", "both"}:
-        plot_modes.append(("variance", "differrence"))
+        plot_modes.append(("variance", "difference"))
     
     for select_mode, suffix in plot_modes:
         heatmap_df_core, module_meta_core, class_blocks_core = prepare_pathway_matrix(
@@ -552,6 +596,7 @@ def drep_cluster_functional_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, p
             suffix=suffix,
             tax_levels_space=tax_levels_space,
             fig_size=fig_size,
+            module_label=module_label,
         )
         outputs.append(out_file)
 
