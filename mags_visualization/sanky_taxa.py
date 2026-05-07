@@ -90,7 +90,7 @@ def is_missing_taxon(value) -> bool:
 
     return False
 
-def generate_taxa_sanky(gtdb, output_path, rank):
+def generate_taxa_sanky(gtdb, output_path, rank, fmt="html"):
     if rank is not None:
         rank = normalize_rank(rank)
 
@@ -209,12 +209,15 @@ def generate_taxa_sanky(gtdb, output_path, rank):
     )
 
     os.makedirs(output_path, exist_ok=True)
-    fig.write_html(os.path.join(output_path, "sankey_plot.html"))
-    
-    
-    #fig.write_image(os.path.join(output_path,"sankey_plot.png")) --> Possible but there are a lot of libraries needed to make this work so if this is wanted i can add them all as requirements
+    out_file = os.path.join(output_path, f"sankey_plot.{fmt}")
 
-def taxa_sanky_rank(gtdb, output_path, rank):
+    if fmt == "html":
+        fig.write_html(out_file)
+    else:
+        fig.write_image(out_file)
+
+
+def taxa_sanky_rank(gtdb, output_path, rank, fmt="html"):
 
     tax_split = gtdb.reset_index()["classification"].str.split(";", expand=True)
     tax_split.columns = ["domain", "phylum", "class", "order", "family", "genus", "species"]
@@ -283,4 +286,9 @@ def taxa_sanky_rank(gtdb, output_path, rank):
         height=800
     )
 
-    fig.write_html(os.path.join(output_path,"sankey_plot_rank_filtered.html"))
+    out_file = os.path.join(output_path, f"sankey_plot_rank_filtered.{fmt}")
+
+    if fmt == "html":
+        fig.write_html(out_file)
+    else:
+        fig.write_image(out_file)

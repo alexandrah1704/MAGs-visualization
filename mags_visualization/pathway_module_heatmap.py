@@ -216,8 +216,8 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
 
 
 def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modules: int | None = None,
-    mode: str = "mean", fmt: str = "png", fig_size=None, show_module_labels: bool = True,
-    row_fontsize: int = 8, module_label: str = "id", representatives_df: pd.DataFrame = None, 
+    mode: str = "mean", fmt: str = "png", fig_size=None, row_fontsize: int = 8, 
+    module_label: str = "id", representatives_df: pd.DataFrame = None, 
     gtdb_df: pd.DataFrame = None, representatives_only: bool = False, top_representatives: int | None = None):
     """
     Create a heatmap shwoing pathway/module completeness across MAGs.
@@ -273,16 +273,15 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
 
     # Module labels on x-axis if wanted
     ax.set_xticks(np.arange(n_cols))
-    if show_module_labels:
-        module_labels = build_module_labels(module_meta, module_label=module_label)
 
-        ax.set_xticklabels(
-            module_labels,
-            rotation=90,
-            fontsize=7 if module_label in {"name", "both"} or n_cols > 30 else 7,
-        )
-    else:
-        ax.set_xticklabels([])
+    module_labels = build_module_labels(module_meta, module_label=module_label)
+
+    ax.set_xticklabels(
+        module_labels,
+        rotation=90,
+        fontsize=8 if module_label in {"name", "both"} or n_cols > 30 else 8,
+    )
+
     ax.tick_params(axis="x", bottom=True, labelbottom=True, top=False, length=2)
 
     # Grid lines between heatmap cells
@@ -344,7 +343,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
             cls,
             ha="center",
             va="bottom",
-            fontsize=7,
+            fontsize=9,
             color=color,
             clip_on=False,
             zorder=6,
