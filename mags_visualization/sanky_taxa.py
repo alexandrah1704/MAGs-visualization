@@ -215,9 +215,7 @@ def generate_taxa_sanky(gtdb, output_path, rank, fmt="html"):
         fig.write_html(out_file)
     else:
         fig.write_image(out_file)
-    
-    
-    #fig.write_image(os.path.join(output_path,"sankey_plot.png")) --> Possible but there are a lot of libraries needed to make this work so if this is wanted i can add them all as requirements
+
 
 def taxa_sanky_rank(gtdb, output_path, rank, fmt="html"):
 
