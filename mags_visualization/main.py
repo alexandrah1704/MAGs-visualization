@@ -107,6 +107,29 @@ def check_path(output_path):
         print(f"[INFO] Folder already exists: {output_path}")
 
 
+def resolve_col_names(metadata_df, col_indices):
+    """
+    Data_column returns 1-based index.
+    """
+    if col_indices is None:
+        return None
+    cols= metadata_df.columns.tolist()
+    result = []
+    for c in col_indices:
+        try:
+            idx = int(c) - 1
+            result.append(cols[idx])
+        except (ValueError, IndexError):
+            result.append(c)
+    return result
+
+
+def is_index_input(meta_cols):
+    if meta_cols is None:
+        return False
+    return all(c.strip().isdigit() for c in meta_cols)
+
+
 # ---- Data loading ---- #
 def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metadata=None, pathways=None):
     """
@@ -270,7 +293,6 @@ def build_parser():
     p.add_argument("--mode", choices=["mean", "variance"], default="mean", dest="mode",
                    help="mean = core modules, variance = differential modules")
     p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
-    p.add_argument("--show_module_labels", action="store_true", dest="show_module_labels")
     p.add_argument("--row_fontsize", type=int, default=8, dest="row_fontsize")
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
@@ -306,6 +328,7 @@ def build_parser():
     p = sub.add_parser("taxa-sankey", help="Create GTDB taxa sankey plots.")
     p.add_argument("--gtdb", required=True, dest="gtdb_file")
     p.add_argument("--rank", choices=tax_levels, default="phylum", dest="rank")
+    p.add_argument("--format", choices=["html", "png", "pdf", "svg"], default="html")
     p.add_argument("-o", "--output", required=True, dest="output")
 
     # ---- all (optional) ----
@@ -378,13 +401,22 @@ def run_sample_heatmap(args):
     dfs["coverm"] = merged_coverm(dfs["coverm"])
     check_path(args.output)
 
+    # Mode: name or index
+    meta_cols = args.meta_cols
+    if dfs.get("metadata") is not None and meta_cols is not None:
+        if is_index_input(meta_cols):
+            meta_cols = resolve_col_names(dfs["metadata"], meta_cols)
+            print(f"[INFO] Resolved meta_cols by index: {meta_cols}")
+        else:
+            print(f"[INFO] Using meta_cols by name: {meta_cols}")
+
     mag_heatmap(
         dfs["coverm"],
         dfs["gtdb"],
         args.output,
         rank=args.tax_level,
         metadata_df=dfs.get("metadata"),
-        meta_cols=args.meta_cols,
+        meta_cols=meta_cols,
         meta_bin_width=args.meta_bin_width,
         fmt=args.format,
         top_bar_height=args.top_bar_height,
@@ -480,7 +512,6 @@ def run_pathway_module_heatmap(args):
         mode=args.mode,
         fmt=args.format,
         fig_size=_fig_size_tuple(args),
-        show_module_labels=args.show_module_labels,
         row_fontsize=args.row_fontsize,
         module_label=args.module_label,
         representatives_df=dfs.get("drep"),
@@ -500,6 +531,17 @@ def run_comp_conta(args):
         metadata=args.metadata_file,
     )
     check_path(args.output)
+
+    # Mode: name or index
+    meta_col = args.meta_col
+    if dfs.get("metadata") is not None and meta_col is not None:
+        if is_index_input(meta_col):
+            resolved = resolve_col_names(dfs["metadata"], [meta_col])
+            meta_col = resolved[0] if resolved else meta_col
+            print(f"[INFO] Resolved meta_cols by index: {meta_col}")
+        else:
+            print(f"[INFO] Using meta_cols by name: {meta_col}")
+
 
     fig_size = _fig_size_tuple(args) or (9, 8)
 
@@ -528,15 +570,15 @@ def run_comp_conta(args):
         return
 
     if args.mode == "meta":
-        if dfs["metadata"] is None or args.meta_col is None:
+        if dfs["metadata"] is None or meta_col is None:
             raise SystemExit("[ERROR] comp-conta --mode meta requires --metadata and --meta_col")
-        if args.meta_col not in dfs["metadata"].columns:
-            raise SystemExit(f"[ERROR] meta_col '{args.meta_col}' not found. Available: {list(dfs['metadata'].columns)}")
+        if meta_col not in dfs["metadata"].columns:
+            raise SystemExit(f"[ERROR] meta_col '{meta_col}' not found. Available: {list(dfs['metadata'].columns)}")
         metadata_completeness_contamination_plot(
             dfs["checkm"],
             dfs["checkm2"],
             dfs["metadata"],
-            meta_col=args.meta_col,
+            meta_col=meta_col,
             output_path=args.output,
             fig_size=_fig_size_tuple(args) or (10, 8),
             fmt=args.format,
@@ -558,8 +600,8 @@ def run_taxa_sankey(args):
         metadata=None,
     )
     check_path(args.output)
-    generate_taxa_sanky(dfs["gtdb"], args.output, args.rank)
-    taxa_sanky_rank(dfs["gtdb"], args.output, args.rank)
+    generate_taxa_sanky(dfs["gtdb"], args.output, args.rank, fmt=args.format)
+    taxa_sanky_rank(dfs["gtdb"], args.output, args.rank, fmt=args.format)
 
 
 def run_all(args):
@@ -660,7 +702,6 @@ def run_all(args):
             mode=args.mode,
             fmt=args.format,
             fig_size=_fig_size_tuple(args),
-            show_module_labels=args.show_module_labels,
             row_fontsize=args.row_fontsize,
             representatives_df=dfs.get("drep"),
             gtdb_df=dfs.get("gtdb"),
