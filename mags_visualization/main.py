@@ -328,6 +328,7 @@ def build_parser():
     p = sub.add_parser("taxa-sankey", help="Create GTDB taxa sankey plots.")
     p.add_argument("--gtdb", required=True, dest="gtdb_file")
     p.add_argument("--rank", choices=tax_levels, default="phylum", dest="rank")
+    p.add_argument("--format", choices=["html", "png", "pdf", "svg"], default="html")
     p.add_argument("-o", "--output", required=True, dest="output")
 
     # ---- all (optional) ----
@@ -599,8 +600,8 @@ def run_taxa_sankey(args):
         metadata=None,
     )
     check_path(args.output)
-    generate_taxa_sanky(dfs["gtdb"], args.output, args.rank)
-    taxa_sanky_rank(dfs["gtdb"], args.output, args.rank)
+    generate_taxa_sanky(dfs["gtdb"], args.output, args.rank, fmt=args.format)
+    taxa_sanky_rank(dfs["gtdb"], args.output, args.rank, fmt=args.format)
 
 
 def run_all(args):
