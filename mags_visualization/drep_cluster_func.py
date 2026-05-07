@@ -375,7 +375,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     ax_heatmap.set_xticklabels(
         module_labels,
         rotation=90,
-        fontsize=6 if module_label in {"name", "both"} or n_cols > 25 else 7,
+        fontsize=8 if module_label in {"name", "both"} or n_cols > 25 else 9,
     )
     ax_heatmap.tick_params(axis="x", bottom=True, labelbottom=True, top=False, length=2)
 
@@ -441,7 +441,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
             cls,
             ha="center",
             va="bottom",
-            fontsize=7,
+            fontsize=8,
             rotation=0,
             color=color,
             clip_on=False,

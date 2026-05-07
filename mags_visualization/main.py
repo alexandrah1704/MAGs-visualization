@@ -293,7 +293,6 @@ def build_parser():
     p.add_argument("--mode", choices=["mean", "variance"], default="mean", dest="mode",
                    help="mean = core modules, variance = differential modules")
     p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
-    p.add_argument("--show_module_labels", action="store_true", dest="show_module_labels")
     p.add_argument("--row_fontsize", type=int, default=8, dest="row_fontsize")
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
@@ -512,7 +511,6 @@ def run_pathway_module_heatmap(args):
         mode=args.mode,
         fmt=args.format,
         fig_size=_fig_size_tuple(args),
-        show_module_labels=args.show_module_labels,
         row_fontsize=args.row_fontsize,
         module_label=args.module_label,
         representatives_df=dfs.get("drep"),
@@ -703,7 +701,6 @@ def run_all(args):
             mode=args.mode,
             fmt=args.format,
             fig_size=_fig_size_tuple(args),
-            show_module_labels=args.show_module_labels,
             row_fontsize=args.row_fontsize,
             representatives_df=dfs.get("drep"),
             gtdb_df=dfs.get("gtdb"),
