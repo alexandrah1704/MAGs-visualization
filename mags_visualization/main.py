@@ -113,9 +113,15 @@ def resolve_col_names(metadata_df, col_indices):
     """
     if col_indices is None:
         return None
-    cols= metadata_df.columns.tolist()
-    result = []
+    flat = []
     for c in col_indices:
+        for part in str(c).split(","):
+            part = part.strip()
+            if part:
+                flat.append(part)
+    cols = metadata_df.columns.tolist()
+    result = []
+    for c in flat:
         try:
             idx = int(c) - 1
             result.append(cols[idx])
@@ -123,11 +129,16 @@ def resolve_col_names(metadata_df, col_indices):
             result.append(c)
     return result
 
-
 def is_index_input(meta_cols):
     if meta_cols is None:
         return False
-    return all(c.strip().isdigit() for c in meta_cols)
+    flat = []
+    for c in meta_cols:
+        for part in str(c).split(","):
+            part = part.strip()
+            if part:
+                flat.append(part)
+    return bool(flat) and all(p.isdigit() for p in flat)
 
 
 # ---- Data loading ---- #
@@ -200,7 +211,7 @@ def load_dfs(coverm, checkm, checkm2, gtdb, drep, bakta=None, quast=None, metada
     if dfs["quast"] is not None:
         print(f"[INFO] quast loaded:  {dfs['quast'].shape}")
 
-    dfs["metadata"] = read_table(metadata, index_col=0) if metadata is not None else None
+    dfs["metadata"] = read_table(metadata, index_col=None) if metadata is not None else None
     if dfs["metadata"] is not None:
         print(f"[INFO] metadata loaded:{dfs['metadata'].shape}")
     else:
@@ -410,6 +421,11 @@ def run_sample_heatmap(args):
         else:
             print(f"[INFO] Using meta_cols by name: {meta_cols}")
 
+    if dfs.get("metadata") is not None:
+        first_col = dfs["metadata"].columns[0]
+        dfs["metadata"] = dfs["metadata"].set_index(first_col)
+        print(f"[INFO] Metadata index set to: '{first_col}'")
+
     mag_heatmap(
         dfs["coverm"],
         dfs["gtdb"],
@@ -535,12 +551,16 @@ def run_comp_conta(args):
     # Mode: name or index
     meta_col = args.meta_col
     if dfs.get("metadata") is not None and meta_col is not None:
-        if is_index_input(meta_col):
+        if is_index_input([meta_col]):
             resolved = resolve_col_names(dfs["metadata"], [meta_col])
             meta_col = resolved[0] if resolved else meta_col
-            print(f"[INFO] Resolved meta_cols by index: {meta_col}")
+            print(f"[INFO] Resolved meta_col by index: {meta_col}")
         else:
             print(f"[INFO] Using meta_cols by name: {meta_col}")
+        
+    if dfs.get("metadata") is not None:
+        first_col = dfs["metadata"].columns[0]
+        dfs["metadata"] = dfs["metadata"].set_index(first_col)
 
 
     fig_size = _fig_size_tuple(args) or (9, 8)
