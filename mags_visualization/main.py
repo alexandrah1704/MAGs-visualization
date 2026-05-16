@@ -310,7 +310,7 @@ def build_parser():
     p.add_argument("--drep", dest="drep_file", default=None, 
                    help="Optional dRep table used to restrict the heatmap to representatives only.")
     p.add_argument("--gtdb", dest="gtdb_file", default=None,
-        help="Optional GTDB table required together with --drep when using --representatives_only.")
+        help="Optional GTDB table required together with --drep when using --top_representatives.")
     p.add_argument("--top_representatives", type=int, default=None, dest="top_representatives",
                help="Limit number of representative MAGs (e.g. top 30)")
     p.add_argument("--sort_by", choices=["cluster_size", "none"], default="cluster_size", help="How to select top representatives")
@@ -733,7 +733,6 @@ def run_all(args):
             row_fontsize=args.row_fontsize,
             representatives_df=dfs.get("drep"),
             gtdb_df=dfs.get("gtdb"),
-            representatives_only=args.representatives_only,
             top_representatives=args.top_representatives,
         )
 
