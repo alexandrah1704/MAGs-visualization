@@ -47,8 +47,8 @@ def extract_rank(tax, rank: str):
             return name if name else "Unclassified"
     return "Unclassified"
 
-def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag: str = "checkm", title: str | None = None,
-                                    fig_size=(9,8), fmt: str = "png",):
+def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag: str = "CheckM", title: str | None = None,
+                                    fig_size=(9,8), fmt: str = "png", tools: str = "both"):
     """Scatter Completeness vs Contamination with marginal histograms"""
     # ---- Data ----
     df = checkm.loc[:, ["Completeness", "Contamination"]].copy()
@@ -212,7 +212,7 @@ def completeness_contamination_plot(checkm: pd.DataFrame, output_path: str, tag:
 
 
 def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_path,
-                                         n, fig_size=(10,8), fmt: str = "png",):
+                                         n, fig_size=(10,8), fmt: str = "png", tools: str = "both"):
     """
     Create two plots for CheckM and CheckM2:
     Completeness vs Contamination, colored by GTDB rank.
@@ -352,15 +352,18 @@ def rank_completeness_contamination_plot(checkm, checkm2, gtdb, rank, output_pat
         out = os.path.join(output_path, f"comp_conta_by_rank_marginals_{tag}.{fmt}")
         fig.savefig(out, dpi=220)
 
-    # Run for both tools
-    _plot_rank(checkm,  gtdb, rank, output_path, n, tag="CheckM", fig_size=fig_size, fmt=fmt)
-    _plot_rank(checkm2, gtdb, rank, output_path, n, tag="CheckM2", fig_size=fig_size, fmt=fmt)
+    # Run for selected tools
+    if tools in ("checkm", "both") and checkm is not None:
+        _plot_rank(checkm,  gtdb, rank, output_path, n, tag="CheckM",  fig_size=fig_size, fmt=fmt)
+    if tools in ("checkm2", "both") and checkm2 is not None:
+        _plot_rank(checkm2, gtdb, rank, output_path, n, tag="CheckM2", fig_size=fig_size, fmt=fmt)
 
 def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
                                              meta_col: str, output_path: str,
                                              fig_size=(10, 8), fmt: str = "png",
                                              bin_width: float = 5.0,
-                                             top_n: int = 10,):
+                                             top_n: int = 10,
+                                             tools: str = "both"):
     """
     Plot completeness vs contamination and colored by metadata column
     """
@@ -622,7 +625,9 @@ def metadata_completeness_contamination_plot(checkm, checkm2, metadata_df,
         out = os.path.join(output_path, f"comp_conta_by_{safe_meta}_marginals_{tag}.{fmt}")
         fig.savefig(out, dpi=220)
 
-    _plot_meta(checkm,  metadata_df, meta_col, output_path, tag="CheckM",  fig_size=fig_size, fmt=fmt,
-               bin_width=bin_width, top_n=top_n)
-    _plot_meta(checkm2, metadata_df, meta_col, output_path, tag="CheckM2", fig_size=fig_size, fmt=fmt,
-               bin_width=bin_width, top_n=top_n)
+    if tools in ("checkm", "both") and checkm is not None:
+        _plot_meta(checkm,  metadata_df, meta_col, output_path, tag="CheckM",  fig_size=fig_size, fmt=fmt,
+                   bin_width=bin_width, top_n=top_n)
+    if tools in ("checkm2", "both") and checkm2 is not None:
+        _plot_meta(checkm2, metadata_df, meta_col, output_path, tag="CheckM2", fig_size=fig_size, fmt=fmt,
+                   bin_width=bin_width, top_n=top_n)

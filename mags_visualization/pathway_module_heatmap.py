@@ -118,8 +118,7 @@ def build_module_labels(module_meta: pd.DataFrame, module_label: str = "id") -> 
 
 def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = None,
     mode: str = "mean", representatives_df: pd.DataFrame = None,
-    gtdb_df: pd.DataFrame = None, representatives_only: bool = False,
-    top_representatives: int | None = None):
+    gtdb_df: pd.DataFrame = None, top_representatives: int | None = None):
     """
     Prepare all data needed to draw the pathway module heatmap.
     Build completeness matrix and pathway class block for heatmap.
@@ -135,16 +134,12 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
     df["completeness"] = pd.to_numeric(df["completeness"], errors="coerce")
     df["pathway_class_simple"] = df["pathway_class"].apply(simplify_pathway_class)
 
+    representatives_only = top_representatives is not None
+
     if representatives_only:
         if representatives_df is None or gtdb_df is None:
             raise ValueError(
                 "representatives_only=True requires both representatives_df (dRep) and gtdb_df"
-            )
-
-        if top_representatives is None:
-            raise ValueError(
-                "representatives_only=True currently also requires top_representatives "
-                "so the same subset as in the first plot can be selected."
             )
         
         pw_genomes = set(df["contig_normalized"].unique())
@@ -218,7 +213,7 @@ def prepare_heatmap_data(pathway_df: pd.DataFrame, top_modules: int | None = Non
 def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modules: int | None = None,
     mode: str = "mean", fmt: str = "png", fig_size=None, row_fontsize: int = 8, 
     module_label: str = "id", representatives_df: pd.DataFrame = None, 
-    gtdb_df: pd.DataFrame = None, representatives_only: bool = False, top_representatives: int | None = None):
+    gtdb_df: pd.DataFrame = None, top_representatives: int | None = None):
     """
     Create a heatmap shwoing pathway/module completeness across MAGs.
 
@@ -228,13 +223,14 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     """
     os.makedirs(output_path, exist_ok=True)
 
+    representatives_only = top_representatives is not None
+
     heatmap_df, module_meta, class_blocks, cluster_sizes = prepare_heatmap_data(
         pathway_df=pathway_df,
         top_modules=top_modules,
         mode=mode,
         representatives_df=representatives_df,
         gtdb_df=gtdb_df,
-        representatives_only=representatives_only,
         top_representatives=top_representatives,
     )
 
