@@ -310,9 +310,7 @@ def build_parser():
     p.add_argument("--drep", dest="drep_file", default=None, 
                    help="Optional dRep table used to restrict the heatmap to representatives only.")
     p.add_argument("--gtdb", dest="gtdb_file", default=None,
-        help="Optional GTDB table required together with --drep when using --representatives_only.")
-    p.add_argument("--representatives_only", action="store_true", dest="representatives_only",
-        help="Show only representative MAGs derived from the dRep table.")
+        help="Optional GTDB table required together with --drep when using --top_representatives.")
     p.add_argument("--top_representatives", type=int, default=None, dest="top_representatives",
                help="Limit number of representative MAGs (e.g. top 30)")
     p.add_argument("--sort_by", choices=["cluster_size", "none"], default="cluster_size", help="How to select top representatives")
@@ -321,8 +319,10 @@ def build_parser():
 
     # ---- comp-conta ----
     p = sub.add_parser("comp-conta", help="Create completeness/contamination plots.")
-    p.add_argument("--checkm", required=True, dest="checkm_file")
-    p.add_argument("--checkm2", required=True, dest="checkm2_file")
+    p.add_argument("--tools", choices=["both", "checkm", "checkm2"], default="both",
+               help="Which tool results to plot (default: both)")
+    p.add_argument("--checkm", required=False, dest="checkm_file")
+    p.add_argument("--checkm2", required=False, dest="checkm2_file")
     p.add_argument("--gtdb", dest="gtdb_file", default=None)
     p.add_argument("--metadata", dest="metadata_file", default=None)
     p.add_argument("--meta_col", dest="meta_col", default=None)
@@ -385,7 +385,6 @@ def build_parser():
     p.add_argument("--mode", choices=["mean", "variance"], default="mean", dest="mode")
     p.add_argument("--show_module_labels", action="store_true", dest="show_module_labels")
     p.add_argument("--row_fontsize", type=int, default=8, dest="row_fontsize")
-    p.add_argument("--representatives_only", action="store_true", dest="representatives_only")
     p.add_argument("--top_representatives", type=int, default=None, dest="top_representatives")
 
     return parser
@@ -532,12 +531,17 @@ def run_pathway_module_heatmap(args):
         module_label=args.module_label,
         representatives_df=dfs.get("drep"),
         gtdb_df=dfs.get("gtdb"),
-        representatives_only=args.representatives_only,
         top_representatives=args.top_representatives,
     )
 
 
 def run_comp_conta(args):
+    # Validate that required files are provided for the selected tools
+    if args.tools in ("checkm", "both") and args.checkm_file is None:
+        raise SystemExit("[ERROR] --checkm is required when --tools is 'checkm' or 'both'")
+    if args.tools in ("checkm2", "both") and args.checkm2_file is None:
+        raise SystemExit("[ERROR] --checkm2 is required when --tools is 'checkm2' or 'both'")
+
     dfs = load_dfs(
         coverm=None,
         checkm=args.checkm_file,
@@ -566,12 +570,14 @@ def run_comp_conta(args):
     fig_size = _fig_size_tuple(args) or (9, 8)
 
     if args.mode == "quality":
-        completeness_contamination_plot(dfs["checkm"], args.output, tag="checkm",
-                                        title="CheckM: Completeness vs Contamination",
-                                        fig_size=fig_size, fmt=args.format)
-        completeness_contamination_plot(dfs["checkm2"], args.output, tag="checkm2",
-                                        title="CheckM2: Completeness vs Contamination",
-                                        fig_size=fig_size, fmt=args.format)
+        if args.tools in ("checkm", "both"):
+            completeness_contamination_plot(dfs["checkm"], args.output, tag="checkm",
+                                            title="CheckM: Completeness vs Contamination",
+                                            fig_size=fig_size, fmt=args.format)
+        if args.tools in ("checkm2", "both"):
+            completeness_contamination_plot(dfs["checkm2"], args.output, tag="checkm2",
+                                            title="CheckM2: Completeness vs Contamination",
+                                            fig_size=fig_size, fmt=args.format)
         return
 
     if args.mode == "tax":
@@ -586,6 +592,7 @@ def run_comp_conta(args):
             args.n,
             fig_size=_fig_size_tuple(args) or (10, 8),
             fmt=args.format,
+            tools=args.tools,
         )
         return
 
@@ -604,6 +611,7 @@ def run_comp_conta(args):
             fmt=args.format,
             bin_width=args.meta_bin_width,
             top_n=args.n,
+            tools=args.tools,
         )
         return
 
@@ -725,7 +733,6 @@ def run_all(args):
             row_fontsize=args.row_fontsize,
             representatives_df=dfs.get("drep"),
             gtdb_df=dfs.get("gtdb"),
-            representatives_only=args.representatives_only,
             top_representatives=args.top_representatives,
         )
 

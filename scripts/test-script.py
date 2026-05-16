@@ -81,7 +81,7 @@ def main() -> int:
             "name": "comp-conta",
             "cmd": cli_md + [
                 "comp-conta",
-                "--checkm", str(test_data / "checkm.tsv"),
+                "--tools", "checkm2",
                 "--checkm2", str(test_data / "checkm2.tsv"),
                 "--mode", "tax",
                 "--gtdb", str(test_data / "gtdb.tsv"),
@@ -98,6 +98,7 @@ def main() -> int:
             "cmd": cli_md + [
                 "taxa-sankey",
                 "--gtdb", str(test_data / "gtdb.tsv"),
+                "--format", "html",
                 "--output", str(out_root),
             ],
             "expected": [
