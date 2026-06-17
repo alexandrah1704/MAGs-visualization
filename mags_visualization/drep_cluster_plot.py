@@ -466,11 +466,11 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
             
             if len(comp_vals_valid) > 0:
                 comp_norm = Normalize(vmin=comp_vals_valid.min(), vmax=comp_vals_valid.max())
-                comp_cmap = cm.get_cmap('Greens')
+                comp_cmap = plt.get_cmap('Greens')
             
             if len(cont_vals_valid) > 0:
                 cont_norm = Normalize(vmin=cont_vals_valid.min(), vmax=cont_vals_valid.max())
-                cont_cmap = cm.get_cmap('Reds')
+                cont_cmap = plt.get_cmap('Reds')
 
         # Quast (genome size, GC%)
         if quast_available:
@@ -480,10 +480,10 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
             gc_vals_valid   = gc_vals[~np.isnan(gc_vals)]
             if len(size_vals_valid) > 0:
                 size_norm = Normalize(vmin=size_vals_valid.min(), vmax=size_vals_valid.max())
-                size_cmap = cm.get_cmap('Blues')
+                size_cmap = plt.get_cmap('Blues')
             if len(gc_vals_valid) > 0:
                 gc_norm = Normalize(vmin=gc_vals_valid.min(), vmax=gc_vals_valid.max())
-                gc_cmap = cm.get_cmap('Purples')
+                gc_cmap = plt.get_cmap('Purples')
 
         # Bakta (CDS, rRNA, hypotheticals ratio)
         if bakta_available:
@@ -493,17 +493,17 @@ def drep_cluster_plot(drep_df: pd.DataFrame, gtdb_df: pd.DataFrame, output_path:
             rrna_vals_valid = rrna_vals[~np.isnan(rrna_vals)]
             if len(cds_vals_valid) > 0:
                 cds_norm = Normalize(vmin=cds_vals_valid.min(), vmax=cds_vals_valid.max())
-                cds_cmap = cm.get_cmap('Oranges')
+                cds_cmap = plt.get_cmap('Oranges')
             if len(rrna_vals_valid) > 0:
                 rrna_norm = Normalize(vmin=rrna_vals_valid.min(), vmax=rrna_vals_valid.max())
-                rrna_cmap = cm.get_cmap('YlOrBr')
+                rrna_cmap = plt.get_cmap('YlOrBr')
             
             if 'rep_hypo_cds_ratio' in cluster_data.columns:
                 hypo_ratio_vals = cluster_data['rep_hypo_cds_ratio'].values.astype(float)
                 hypo_ratio_vals_valid = hypo_ratio_vals[~np.isnan(hypo_ratio_vals)]
                 if len(hypo_ratio_vals_valid) > 0:
                     hypo_ratio_norm = Normalize(vmin=hypo_ratio_vals_valid.min(), vmax=hypo_ratio_vals_valid.max())
-                    hypo_ratio_cmap = cm.get_cmap('RdPu')
+                    hypo_ratio_cmap = plt.get_cmap('RdPu')
 
         # Draw a row of colored blocks per cluster
         for i, row in cluster_data.iterrows():
