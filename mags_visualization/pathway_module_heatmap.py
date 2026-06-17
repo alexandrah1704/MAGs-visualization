@@ -253,7 +253,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
     values = heatmap_df.to_numpy(dtype=float)
     masked = np.ma.masked_invalid(values)
 
-    cmap = cm.get_cmap("Reds").copy()
+    cmap = plt.get_cmap("Reds").copy()
     cmap.set_bad(color="white")
     norm = Normalize(vmin=0, vmax=100)
 
@@ -354,7 +354,7 @@ def pathway_module_heatmap(pathway_df: pd.DataFrame, output_path: str, top_modul
 
         size_ax = fig.add_axes([pos.x1 + 0.01, pos.y0, 0.02, pos.height])
 
-        size_cmap = cm.get_cmap("Oranges").copy()
+        size_cmap = plt.get_cmap("Oranges").copy()
         size_cmap.set_bad(color="white")
 
         size_im = size_ax.imshow(

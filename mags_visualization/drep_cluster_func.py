@@ -350,7 +350,7 @@ def plot_single_functional(cluster_data: pd.DataFrame, drep: pd.DataFrame, total
     values = heatmap_display_df.to_numpy(dtype=float)
     masked = np.ma.masked_invalid(values)
 
-    cmap = cm.get_cmap("Reds").copy()
+    cmap = plt.get_cmap("Reds").copy()
     cmap.set_bad(color="white")
     norm = Normalize(vmin=0, vmax=100)
 
