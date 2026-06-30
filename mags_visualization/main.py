@@ -305,6 +305,7 @@ def build_parser():
                    help="Spacing between taxonomy columns (cm)")
     p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size",
                    help="Figure size in cm (width height)")
+    p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png" , "pdf", "svg"], default="png", dest="format")
     p.add_argument("--top_modules", type=int_or_none, default=35, dest="top_modules")
     p.add_argument("--mode", choices=["mean", "variance", "both"], default="mean", dest="mode",
