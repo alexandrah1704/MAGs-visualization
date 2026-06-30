@@ -46,6 +46,20 @@ def run_clean(plot_func, *args, **kwargs):
     return plot_func(*args, **kwargs)
 
 
+CM_TO_INCH = 1 / 2.54
+
+def cm(value):
+    """Convert cm to inches for matplotlib."""
+    return value * CM_TO_INCH
+
+def _fig_size_tuple(args):
+    """Convert user-supplied fig_size (in cm) to inches tuple."""
+    if getattr(args, "fig_size", None) is None:
+        return None
+    width, height = args.fig_size
+    return (cm(width), cm(height))
+
+
 def read_table(path, index_col=None, prefer_tsv=None):
     if path is None:
         return None
@@ -249,16 +263,17 @@ def build_parser():
     p.add_argument("--max_col", type=int, default=10, dest="max_col")
     p.add_argument("--no_log", action="store_true")
 
+
     # layout options
-    layout = p.add_argument_group("Heatmap Layout Options")
-    layout.add_argument("--top_bar_height", type=float, default=0.7, dest="top_bar_height")
-    layout.add_argument("--hspace", type=float, default=0.25, dest="hspace")
-    layout.add_argument("--heatmap_width", type=float, default=11.0, dest="heatmap_width")
-    layout.add_argument("--spacer_legend", type=float, default=0.3, dest="spacer_legend")
-    layout.add_argument("--spacer_meta", type=float, default=2.0, dest="spacer_meta")
-    layout.add_argument("--spacer_heatmap", type=float, default=0.10, dest="spacer_heatmap")
-    layout.add_argument("--legend", type=float, default=2.5, dest="legend")
-    layout.add_argument("--meta_bar_add", type=float, default=1.5, dest="meta_bar_add")
+    layout = p.add_argument_group("Heatmap Layout Options (all values in cm)")
+    layout.add_argument("--top_bar_height", type=float, default=1.8, dest="top_bar_height")
+    layout.add_argument("--hspace", type=float, default=0.6, dest="hspace")
+    layout.add_argument("--heatmap_width", type=float, default=28.0, dest="heatmap_width")
+    layout.add_argument("--spacer_legend", type=float, default=0.8, dest="spacer_legend")
+    layout.add_argument("--spacer_meta", type=float, default=5.0, dest="spacer_meta")
+    layout.add_argument("--spacer_heatmap", type=float, default=0.25, dest="spacer_heatmap")
+    layout.add_argument("--legend", type=float, default=6.4, dest="legend")
+    layout.add_argument("--meta_bar_add", type=float, default=3.8, dest="meta_bar_add")
     layout.add_argument("--top_bar_spacer", type=float, default=0.0, dest="top_bar_spacer")
 
     # ---- drep-cluster-annotation ----
@@ -270,8 +285,9 @@ def build_parser():
     p.add_argument("--bakta", dest="bakta_file", default=None)
     p.add_argument("--tax_levels", nargs="+", choices=tax_levels, default=["phylum", "genus"])
     p.add_argument("--top_n", type=positive_int, default=30, dest="n")
-    p.add_argument("--tax_levels_space", type=float, default=0.3, dest="tax_levels_space")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
+    p.add_argument("--tax_levels_space", type=float, default=0.8, dest="tax_levels_space", help="Spacing between taxonomy columns (cm)")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size",
+                   help="Figure size in cm (width height)")
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
 
@@ -285,9 +301,10 @@ def build_parser():
     p.add_argument("--pathways", dest="pathways_file", default=None, help="TSV with contig, module accession, completeness, pathway_name, pathway_class, ...")
     p.add_argument("--tax_levels", nargs="+", choices=tax_levels, default=["phylum", "genus"])
     p.add_argument("--top_n", type=positive_int, default=30, dest="n")
-    p.add_argument("--tax_levels_space", type=float, default=0.3, dest="tax_levels_space")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
-    p.add_argument("-o", "--output", required=True, dest="output")
+    p.add_argument("--tax_levels_space", type=float, default=0.8, dest="tax_levels_space",
+                   help="Spacing between taxonomy columns (cm)")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size",
+                   help="Figure size in cm (width height)")
     p.add_argument("--format", choices=["png" , "pdf", "svg"], default="png", dest="format")
     p.add_argument("--top_modules", type=int_or_none, default=35, dest="top_modules")
     p.add_argument("--mode", choices=["mean", "variance", "both"], default="mean", dest="mode",
@@ -303,7 +320,8 @@ def build_parser():
                    help="Number of modules to show. Use None to show all modules.")
     p.add_argument("--mode", choices=["mean", "variance"], default="mean", dest="mode",
                    help="mean = core modules, variance = differential modules")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size",
+                   help="Figure size in cm (width height)")
     p.add_argument("--row_fontsize", type=int, default=8, dest="row_fontsize")
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
@@ -331,7 +349,8 @@ def build_parser():
     p.add_argument("--mode", choices=["quality", "tax", "meta"], default="quality",
                    help="quality = plain plots; tax = rank plot needs --gtdb; meta = metadata plot needs --metadata and --meta_col")
     p.add_argument("--tax_level", choices=tax_levels, default="phylum", dest="tax_level")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size",
+                   help="Figure size in cm (width height)")
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
 
@@ -364,19 +383,20 @@ def build_parser():
     p.add_argument("--meta_bin_width", type=float, default=5.0, dest="meta_bin_width")
     p.add_argument("--column_choice", nargs="+", metavar="METRIC", dest="column_choice")
     p.add_argument("--color_by", choices=["quality", "tax", "meta"], dest="color_by")
-    p.add_argument("--tax_levels_space", type=float, default=0.3, dest="tax_levels_space")
-    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size")
+    p.add_argument("--tax_levels_space", type=float, default=0.8, dest="tax_levels_space")
+    p.add_argument("--fig_size", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"), dest="fig_size",
+                   help="Figure size in cm (width height)")
     p.add_argument("-o", "--output", required=True, dest="output")
     p.add_argument("--format", choices=["png", "pdf", "svg"], default="png", dest="format")
     # heatmap layout subset
-    p.add_argument("--top_bar_height", type=float, default=0.7, dest="top_bar_height")
-    p.add_argument("--hspace", type=float, default=0.25, dest="hspace")
-    p.add_argument("--heatmap_width", type=float, default=11.0, dest="heatmap_width")
-    p.add_argument("--spacer_legend", type=float, default=0.3, dest="spacer_legend")
-    p.add_argument("--spacer_meta", type=float, default=2.0, dest="spacer_meta")
-    p.add_argument("--spacer_heatmap", type=float, default=0.10, dest="spacer_heatmap")
-    p.add_argument("--legend", type=float, default=2.5, dest="legend")
-    p.add_argument("--meta_bar_add", type=float, default=1.5, dest="meta_bar_add")
+    p.add_argument("--top_bar_height", type=float, default=1.8, dest="top_bar_height")
+    p.add_argument("--hspace", type=float, default=0.6, dest="hspace")
+    p.add_argument("--heatmap_width", type=float, default=28.0, dest="heatmap_width")
+    p.add_argument("--spacer_legend", type=float, default=0.8, dest="spacer_legend")
+    p.add_argument("--spacer_meta", type=float, default=5.0, dest="spacer_meta")
+    p.add_argument("--spacer_heatmap", type=float, default=0.25, dest="spacer_heatmap")
+    p.add_argument("--legend", type=float, default=6.4, dest="legend")
+    p.add_argument("--meta_bar_add", type=float, default=3.8, dest="meta_bar_add")
     p.add_argument("--top_bar_spacer", type=float, default=0.0, dest="top_bar_spacer")
     p.add_argument("--max_col", type=int, default=10, dest="max_col")
     p.add_argument("--no_log", action="store_true")
@@ -395,10 +415,6 @@ def parse_arguments(argv=None):
 
 
 # ---- Subcommand implementation ---- #
-def _fig_size_tuple(args):
-    return tuple(args.fig_size) if getattr(args, "fig_size", None) is not None else None
-
-
 def run_sample_heatmap(args):
     dfs = load_dfs(
         coverm=args.coverm_path,
@@ -434,15 +450,15 @@ def run_sample_heatmap(args):
         meta_cols=meta_cols,
         meta_bin_width=args.meta_bin_width,
         fmt=args.format,
-        top_bar_height=args.top_bar_height,
-        hspace=args.hspace,
-        heatmap_width=args.heatmap_width,
-        spacer_legend=args.spacer_legend,
-        spacer_meta=args.spacer_meta,
-        spacer_heatmap=args.spacer_heatmap,
-        legend=args.legend,
-        meta_bar_add=args.meta_bar_add,
-        top_bar_spacer=args.top_bar_spacer,
+        top_bar_height=cm(args.top_bar_height),
+        hspace=cm(args.hspace),
+        heatmap_width=cm(args.heatmap_width),
+        spacer_legend=cm(args.spacer_legend),
+        spacer_meta=cm(args.spacer_meta),
+        spacer_heatmap=cm(args.spacer_heatmap),
+        legend=cm(args.legend),
+        meta_bar_add=cm(args.meta_bar_add),
+        top_bar_spacer=cm(args.top_bar_spacer),
         max_col=args.max_col,
         log_top=not args.no_log,
     )
@@ -469,7 +485,7 @@ def run_drep_cluster(args):
         top_n=args.n,
         fig_size=_fig_size_tuple(args),
         fmt=args.format,
-        tax_levels_space=args.tax_levels_space,
+        tax_levels_space=cm(args.tax_levels_space),
         checkm2_df=dfs.get("checkm2"),
         quast_df=dfs.get("quast"),
         bakta_df=dfs.get("bakta"),
@@ -501,7 +517,7 @@ def run_drep_cluster_func(args):
         fig_size=_fig_size_tuple(args),
         fmt=args.format,
         mode=args.mode,
-        tax_levels_space=args.tax_levels_space,
+        tax_levels_space=cm(args.tax_levels_space),
         module_label=args.module_label,
     )
 
@@ -698,7 +714,7 @@ def run_all(args):
             dfs["drep"], dfs["gtdb"], args.output,
             tax_levels=args.tax_levels, top_n=args.n,
             fig_size=comp_fig_size, fmt=args.format,
-            tax_levels_space=args.tax_levels_space,
+            tax_levels_space=cm(args.tax_levels_space),
             checkm2_df=dfs.get("checkm2"),
             quast_df=dfs.get("quast"),
             bakta_df=dfs.get("bakta"),
@@ -717,7 +733,7 @@ def run_all(args):
             tax_levels=args.tax_levels,
             top_modules=args.top_modules,
             fig_size=_fig_size_tuple(args),
-            tax_levels_space=args.tax_levels_space,
+            tax_levels_space=cm(args.tax_levels_space),
         )
     
     # pathway-heatmap-completeness
@@ -746,15 +762,15 @@ def run_all(args):
             meta_cols=args.meta_cols,
             meta_bin_width=args.meta_bin_width,
             fmt=args.format,
-            top_bar_height=args.top_bar_height,
-            hspace=args.hspace,
-            heatmap_width=args.heatmap_width,
-            spacer_legend=args.spacer_legend,
-            spacer_meta=args.spacer_meta,
-            spacer_heatmap=args.spacer_heatmap,
-            legend=args.legend,
-            meta_bar_add=args.meta_bar_add,
-            top_bar_spacer=args.top_bar_spacer,
+            top_bar_height=cm(args.top_bar_height),
+            hspace=cm(args.hspace),
+            heatmap_width=cm(args.heatmap_width),
+            spacer_legend=cm(args.spacer_legend),
+            spacer_meta=cm(args.spacer_meta),
+            spacer_heatmap=cm(args.spacer_heatmap),
+            legend=cm(args.legend),
+            meta_bar_add=cm(args.meta_bar_add),
+            top_bar_spacer=cm(args.top_bar_spacer),
             max_col=args.max_col,
             log_top=not args.no_log,
         )
